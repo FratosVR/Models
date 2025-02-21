@@ -10,7 +10,7 @@ from tensorboard.plugins.hparams import api as hp
 class LSTMTrainer:
     """LSTM Model training manager with hyperparameter tuning using hparams."""
 
-    def __init__(self):
+    def __init__(self, interval):
         """Initializes the LSTMTrainer class."""
 
         # Define hyperparameters for tuning
@@ -31,8 +31,10 @@ class LSTMTrainer:
         self.HP_USE_BIAS = hp.HParam('use_bias', hp.Discrete([True, False]))
         """Hparam acuracy metric."""
         self.METRIC_ACCURACY = 'accuracy'
+        """Interval of time between each frame sent to the model."""
+        self.__interval = interval
         """tensorboard log directory."""
-        self.__tensorboard_log_dir = "./logs/hparams_LSTM"
+        self.__tensorboard_log_dir = f"./logs/hparams_LSTM{interval}"
         """tensorboard callbacks."""
         self.__tensorboard_callbacks = [
             tf.keras.callbacks.TensorBoard(
@@ -94,22 +96,20 @@ class LSTMTrainer:
             num_cats (int, optional): number of categories to be classified. Defaults to 5.
         """
 
-        log_dir = self.__tensorboard_log_dir
-
         # Create logging directory
-        os.makedirs(log_dir, exist_ok=True)
-
-        hparam_combinations = list(product(
-            ["tanh", "linear", "relu", "sigmoid"],  # Activation functions
-            np.arange(0, 1, 0.1).tolist(),         # Dropout values
-            np.arange(0, 1, 0.1).tolist(),         # Recurrent dropout values
-            # Recurrent activation functions
-            ["tanh", "linear", "relu", "sigmoid"],
-            [True, False],                         # Unroll options
-            [True, False]                          # Use bias
-        ))
+        os.makedirs(self.__tensorboard_log_dir, exist_ok=True)
 
         session_num = 0
+
+        # Generate all possible combinations of hyperparameters
+        hparam_combinations = list(product(
+            self.HP_ACTIVATION.domain.values,
+            self.HP_DROPOUT.domain.values,
+            self.HP_RECURRENT_DROPOUT.domain.values,
+            self.HP_RECURRENT_ACTIVATION.domain.values,
+            self.HP_UNROLL.domain.values,
+            self.HP_USE_BIAS.domain.values
+        ))
         for hparam_values in hparam_combinations:
             hparams = {
                 self.HP_ACTIVATION: hparam_values[0],
@@ -121,7 +121,8 @@ class LSTMTrainer:
             }
 
             run_name = f"run-{session_num}"
-            session_log_dir = os.path.join(log_dir, run_name)
+            session_log_dir = os.path.join(
+                self.__tensorboard_log_dir, run_name)
             print(f"Starting experiment {run_name} with {hparams}")
 
             self.__activation = hparam_values[0]
@@ -187,12 +188,7 @@ class LSTMTrainer:
              new_accuracy (float): new accuracy of the model
              new_time (float): new execution time of the model
          """
-        self.__dropout = self.__best_args["dropout"]
-        self.__recurrent_dropout = self.__best_args["recurrent_dropout"]
-        self.__activation = self.__best_args["activation"]
-        self.__recurrent_activation = self.__best_args["recurrent_activation"]
-        self.__unroll = self.__best_args["unroll"]
-        self.__use_bias = self.__best_args["use_bias"]
+        self.__best_args = hparams
         self._exec_time = new_time
         self.__best_score = new_accuracy
 
@@ -203,7 +199,7 @@ class LSTMTrainer:
         """
         if self.__model is None:
             raise ValueError("Model is not initialized")
-        self.__model.save("../models/best-lstm.h5")
+        self.__model.save(f"../models/best-lstm{self.__interval}.h5")
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predicts the category of the given input.
@@ -230,7 +226,7 @@ if __name__ == "__main__":
     X_val = np.random.randn(20, 10, 1)
     y_val = np.random.randint(0, 5, size=(20, 5))
 
-    trainer = LSTMTrainer()
+    trainer = LSTMTrainer(10)
     trainer.train_with_hparams(
         X_train, y_train, X_val, y_val, epochs=5, batch_size=2)
 
