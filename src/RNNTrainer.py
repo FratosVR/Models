@@ -293,14 +293,14 @@ class RNNTrainer:
         return self.__model.predict(X)
 
 
-if __name__ == "__main__"
-X_train = np.random.randn(100, 10, 1)
-y_train = np.random.randn(0, 5, size=(100, 5))
+if __name__ == "__main__":
+    X_train = np.random.randn(100, 10, 1)
+    y_train = np.random.randn(0, 5, size=(100, 5))
 
-X_val = np.random.rand(20, 10, 1)
-y_val = np.random.rand(0, 5, size=(20, 5))
+    X_val = np.random.rand(20, 10, 1)
+    y_val = np.random.rand(0, 5, size=(20, 5))
 
-trainer = RNNTrainer(10)
-trainer.train_with_hparams(X_train, y_train, X_val, y_val)
+    trainer = RNNTrainer(10)
+    trainer.train_with_hparams(X_train, y_train, X_val, y_val)
 
-print(f"Best hyperparameters found: {trainer.__best_args}")
+    print(f"Best hyperparameters found: {trainer.__best_args}")
