@@ -1,18 +1,27 @@
 import gradio as gr
-from RandomForestTrainer import RandomForestTrainer
-from RNNTrainer import RNNTrainer
-from CNNTrainer import CNNTrainer
-from LSTMTrainer import LSTMTrainer
+# from RandomForestTrainer import RandomForestTrainer
+# from RNNTrainer import RNNTrainer
+# from CNNTrainer import CNNTrainer
+# from LSTMTrainer import LSTMTrainer
 
 
-models = ["RNN", "CNN", "LSTM", "RandomForest"]
+# models = ["RNN", "CNN", "LSTM", "RandomForest"]
 
-models_map = {
-    "RNN": RNNTrainer,
-    "CNN": CNNTrainer,
-    "LSTM": LSTMTrainer,
-    "RandomForest": RandomForestTrainer
-}
+# models_map = {
+#     "RNN": RNNTrainer,
+#     "CNN": CNNTrainer,
+#     "LSTM": LSTMTrainer,
+#     "RandomForest": RandomForestTrainer
+# }
+
+models = []
+models_map = {}
+
+sec_interval = [0.5]
+
+
+def change_interval(value):
+    sec_interval = [value]
 
 
 def train(model, path):
@@ -27,6 +36,10 @@ with gr.Blocks(theme="ParityError/Interstellar") as blocks:
         with gr.Column():
             model = gr.Dropdown(models, label="Select model")
             path = gr.Textbox(label="Path to dataset")
+            slider = gr.Slider(0.1, 1.0, value=0.5,
+                               step=0.1, label="Sec interval")
+            slider.release(change_interval, inputs=slider, outputs=None)
+            all_interval_button = gr.Button("All intervals")
             button = gr.Button("Train model")
 
         with gr.Column():
