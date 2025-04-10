@@ -10,7 +10,11 @@ class RNNTrainer:
     """RNN Model training manager with hyperparameter tuning using hparams."""
 
     def __init__(self, interval):
-        """Initializes the RNNTrainer class."""
+        """Initializes the RNNTrainer class.
+
+        Args:
+            interval (float): interval of time between each frame sent to the model.
+        """
 
         # Define hyperparameters for tuning
         """Hparam for activation function."""

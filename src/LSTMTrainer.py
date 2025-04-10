@@ -10,8 +10,12 @@ from tensorboard.plugins.hparams import api as hp
 class LSTMTrainer:
     """LSTM Model training manager with hyperparameter tuning using hparams."""
 
-    def __init__(self, interval):
-        """Initializes the LSTMTrainer class."""
+    def __init__(self, interval: float):
+        """Initializes the LSTMTrainer class.
+
+        Args:
+            interval (float): interval of time between each frame sent to the model.
+        """
 
         # Define hyperparameters for tuning
         """Hparam for dropout rate."""
