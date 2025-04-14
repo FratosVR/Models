@@ -10,18 +10,18 @@ Marca temporal,Género,Edad,"Nacionalidad(sin espacios, separado por comas)","Id
 7/04/2025 15:41:37,Masculino,33,España,"Español,Inglés",Diestro
 7/04/2025 16:03:14,Femenino,21,España,"Español,Inglés",Diestro
 7/04/2025 16:36:41,Femenino,21,España,Español,Diestro
-7/04/2025 17:06:07,Femenino,26,España,"Español,Inglés",Diestro
+7/04/2025 17:06:07,Femenino,26,Español,"Español,Inglés",Diestro
 7/04/2025 17:29:40,Masculino,20,España,Español,Diestro
 7/04/2025 18:09:16,Masculino,26,España,"Español,Inglés",Zurdo
 7/04/2025 18:41:13,Femenino,22,España,"Español,Inglés",Diestro
 8/04/2025 10:06:26,Masculino,19,España,"Español,Francés,Valenciano,Inglés",Diestro
-8/04/2025 10:08:06,No binario,20,España,"Español,Gallego,Inglés,Francés,Japonés",Diestro
+8/04/2025 10:08:06,No binario,20,Español,"Español,Gallego,Inglés,Francés,Japonés",Diestro
 8/04/2025 10:34:23,Masculino,25,España,"Español,Inglés,Francés",Diestro
 8/04/2025 11:42:07,Femenino,26,España,"Español,Inglés",Diestro
 8/04/2025 12:08:56,Masculino,19,España,"Español,Inglés",Diestro
 8/04/2025 12:34:28,Femenino,43,España,Español,Diestro
 8/04/2025 13:06:39,Masculino,21,Chino,"Español,Inglés,Chino",Diestro
-8/04/2025 13:37:04,Masculino,19,España,"Español,Inglés",Diestro
+8/04/2025 13:37:04,Masculino,19,Español,"Español,Inglés",Diestro
 8/04/2025 14:12:09,Femenino,21,España,"Español,Inglés,Francés",Diestro
 8/04/2025 14:31:37,Masculino,21,Chino,"Español,Inglés,Chino",Diestro
 8/04/2025 15:15:17,Masculino,21,España,"Español,Francés,Ingles,Sueco",Diestro
@@ -29,17 +29,17 @@ Marca temporal,Género,Edad,"Nacionalidad(sin espacios, separado por comas)","Id
 8/04/2025 16:16:46,Masculino,31,España,"Español,Inglés",Diestro
 8/04/2025 16:42:54,Masculino,48,España,"Español,Inglés",Diestro
 8/04/2025 17:18:58,Masculino,18,España,Español,Diestro
-8/04/2025 17:39:55,Femenino,21,España,"Español,Inglés",Diestro
+8/04/2025 17:39:55,Femenino,21,Española,"Español,Inglés",Diestro
 8/04/2025 18:12:10,Femenino,21,España,"Español,Inglés",Diestro
-8/04/2025 18:45:03,Masculino,24,España,"Español,Inglés",Diestro
+8/04/2025 18:45:03,Masculino,24,Español,"Español,Inglés",Diestro
 8/04/2025 19:31:42,Femenino,21,Rumanía,"Rumano,Español,Inglés,Italiano,Francés",Diestro
 9/04/2025 9:34:02,Femenino,21,España,"Español,Inglés,Francés",Diestro
-9/04/2025 10:32:06,Femenino,24,España,"Español,Inglés",Diestro
-9/04/2025 10:54:59,Femenino,21,España,"Español,Inglés",Diestro
-9/04/2025 11:25:43,Masculino,43,España,"Español,Inglés",Diestro
-9/04/2025 12:08:21,Masculino,21,España,"Español,Inglés",Diestro
+9/04/2025 10:32:06,Femenino,24,Español,"Español,Inglés",Diestro
+9/04/2025 10:54:59,Femenino,21,Español,"Español,Inglés",Diestro
+9/04/2025 11:25:43,Masculino,43,Español,"Español,Inglés",Diestro
+9/04/2025 12:08:21,Masculino,21,Español,"Español,Inglés",Diestro
 9/04/2025 12:33:05,Masculino,34,España,"Español,Inglés",Diestro
-9/04/2025 14:14:46,Femenino,20,España,Español,Diestro
+9/04/2025 14:14:46,Femenino,20,Español,Español,Diestro
 9/04/2025 14:49:08,No binario,19,España,"Español,Inglés",Diestro
 9/04/2025 15:17:11,Masculino,18,España,"Español,Inglés",Diestro
 9/04/2025 15:38:28,Femenino,23,España,"Español,Inglés,Francés",Diestro
@@ -48,6 +48,19 @@ Marca temporal,Género,Edad,"Nacionalidad(sin espacios, separado por comas)","Id
 9/04/2025 17:07:28,Femenino,30,España,"Español,Inglés,Francés",Diestro
 9/04/2025 17:51:03,No binario,23,España,"Español,Euskera,Inglés",Diestro
 10/04/2025 9:14:54,Femenino,19,Ruso,"Ruso,Español,Inglés,Alemán",Diestro
-10/04/2025 10:03:09,Masculino,46,España,"Español,Inglés",Diestro
-10/04/2025 10:32:30,Femenino,21,España,"Español,Inglés,Francés",Zurdo
+10/04/2025 10:03:09,Masculino,46,Español,"Español,Inglés",Diestro
+10/04/2025 10:32:30,Femenino,21,Español,"Español,Inglés,Francés",Zurdo
 10/04/2025 11:16:45,Masculino,40,España,"Español,Inglés,Francés",Diestro
+10/04/2025 11:45:46,Femenino,25,España,"Español,Inglés,Francés",Diestro
+10/04/2025 12:10:15,Masculino,25,Español,"Español,Inglés,Japonés,Catalán",Diestro
+10/04/2025 12:43:37,Masculino,27,España,"Español,Inglés,Aleman,Japonés",Diestro
+10/04/2025 13:19:17,Masculino,32,Brasil,"Portugués,Español,Inglés",Zurdo
+10/04/2025 14:16:38,Femenino,21,Chino,"Español,Inglés,Chino",Diestro
+10/04/2025 15:07:56,Masculino,35,Irán,"Inglés,Español,Persa",Diestro
+10/04/2025 15:33:05,Masculino,31,España,"Español,Inglés,Francés",Diestro
+10/04/2025 15:56:47,Masculino,48,España,"Español,Inglés,Francés",Diestro
+10/04/2025 16:42:33,Masculino,24,España,"Español,Inglés",Diestro
+10/04/2025 17:28:57,Femenino,18,España,"Español,Inglés",Diestro
+10/04/2025 17:48:21,Femenino,21,España,"Español,Inglés",Diestro
+10/04/2025 18:11:26,Femenino,32,España,"Español,Inglés",Diestro
+10/04/2025 18:36:00,Masculino,32,España,"Español,Inglés",Zurdo

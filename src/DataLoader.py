@@ -15,9 +15,9 @@ class DataLoader:
         self.__api = KaggleApi()
         self.__api.authenticate()
         self.__dataset_path = dataset_path
-        if not os.path.exists(self.__dataset_path):
-            self.__api.dataset_download_cli(
-                "alk222/csv-pose-animations", path=self.__dataset_path, unzip=True)
+        # if not os.path.exists(self.__dataset_path):
+        #     self.__api.dataset_download_cli(
+        #         "alk222/csv-pose-animations", path=self.__dataset_path, unzip=True)
 
     def data_cleaner(self, data: list[tuple[str, str, np.ndarray]], max_length: int) -> list[tuple[str, str, np.ndarray]]:
         new_elems = []
@@ -88,7 +88,7 @@ class DataLoader:
         # return list_data
 
         os.makedirs("./dataset/splitted-animations", exist_ok=True)
-        for label, filename, row in cleaned_data:
+        for label, filename, row in tqdm(cleaned_data):
             np.savetxt(os.path.join("./dataset/splitted-animations",
                        filename + ".csv"), row, delimiter=",")
 
