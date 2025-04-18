@@ -3,16 +3,18 @@ import numpy as np
 import time
 from itertools import product
 import os
+import json
 import matplotlib.pyplot as plt
 from tensorboard.plugins.hparams import api as hp
 from tensorboard import program
+from tensorflow.keras.callbacks import EarlyStopping
+from Utils import plot_confusion_matrix
 
 
 class LSTMTrainer:
     """LSTM Model training manager with hyperparameter tuning using hparams."""
 
     def __init__(self, interval: float):
-        """Initializes the LSTMTrainer class."""
         self.HP_DROPOUT = hp.HParam('dropout', hp.RealInterval(0.0, 1.0))
         self.HP_RECURRENT_DROPOUT = hp.HParam(
             'recurrent_dropout', hp.RealInterval(0.0, 1.0))
@@ -23,6 +25,7 @@ class LSTMTrainer:
         self.HP_UNROLL = hp.HParam('unroll', hp.Discrete([True, False]))
         self.HP_USE_BIAS = hp.HParam('use_bias', hp.Discrete([True, False]))
         self.METRIC_ACCURACY = 'accuracy'
+
         self.__interval = interval
         self.__tensorboard_log_dir = f"./logs/hparams_LSTM{interval}"
         self.__tensorboard_callbacks = [
@@ -58,10 +61,18 @@ class LSTMTrainer:
         ])
 
     def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
-                           epochs: int = 10, batch_size: int = 1, num_cats: int = 6) -> None:
+                           epochs: int = 10, batch_size: int = 1, num_cats: int = 6, categories: list[str] = None) -> None:
         os.makedirs(self.__tensorboard_log_dir, exist_ok=True)
-        session_num = 0
 
+        completed_runs_path = os.path.join(
+            self.__tensorboard_log_dir, f"completed_runs_{self.__interval}.json")
+        if os.path.exists(completed_runs_path):
+            with open(completed_runs_path, "r") as f:
+                completed_runs = json.load(f)
+        else:
+            completed_runs = {}
+
+        session_num = 0
         hparam_combinations = list(product(
             self.HP_ACTIVATION.domain.values,
             self._dropout_values,
@@ -84,6 +95,12 @@ class LSTMTrainer:
             run_name = f"run-{session_num}"
             session_log_dir = os.path.join(
                 self.__tensorboard_log_dir, run_name)
+
+            if run_name in completed_runs and completed_runs[run_name] == "done":
+                print(f"{run_name} already completed, skipping.")
+                session_num += 1
+                continue
+
             print(f"Starting experiment {run_name} with {hparams}")
 
             self.__activation = hparam_values[0]
@@ -94,13 +111,36 @@ class LSTMTrainer:
             self.__use_bias = hparam_values[5]
 
             self.__model_generator(X[0].shape, num_cats)
-            self.train(X, y, X_val, y_val, epochs,
-                       batch_size, session_log_dir, hparams)
+            (acc, exec_time) = self.train(X, y, X_val, y_val, epochs,
+                                          batch_size, session_log_dir, hparams)
+
+            completed_runs[run_name] = {
+                "status": "done", "acc": acc, "exec_time": exec_time}
+            with open(completed_runs_path, "w") as f:
+                json.dump(completed_runs, f, indent=2)
 
             session_num += 1
+            del self.__model
+            self.__model = None
+
+        os.makedirs("./LSTMlog", exist_ok=True)
+        f = open(os.path.join(
+            "./LSTMlog", f"best_model_{self.__interval}.txt"), "w")
+        f.write(f"Best model: {self.__best_model_path}\n")
+        f.write(f"Best score: {self.__best_score}\n")
+        f.write(f"Best args: {self.__best_args}\n")
+        f.write(f"Execution time: {self._exec_time}\n")
+        f.close()
+
+        self.confusion_matrix(
+            self.__best_model_path,
+            y_true=np.concatenate((y, y_val)),
+            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            tags=categories
+        )
 
     def train(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
-              epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> None:
+              epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> list[float]:
 
         if self.__model is None:
             raise ValueError("Model is not initialized")
@@ -108,11 +148,36 @@ class LSTMTrainer:
         self.__model.compile(
             optimizer="adam", loss="categorical_crossentropy", metrics=['accuracy'])
 
+        class CustomEarlyStopping(EarlyStopping):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self.prev_losses = []
+
+            def on_epoch_end(self, epoch, logs=None):
+                current_loss = logs.get("accuracy")
+                self.prev_losses.append(current_loss)
+                if len(self.prev_losses) >= 2:
+                    loss1, loss2 = self.prev_losses[-2], self.prev_losses[-1]
+                    if loss1 is not None and loss2 is not None:
+                        improvement = (loss1 - loss2) / (loss1 + 1e-8)
+                        if improvement == 0:
+                            print(
+                                f"Early stopping at epoch {epoch+1}: Improvement {improvement*100:.2f}%")
+                            self.model.stop_training = True
+
+        early_stop = CustomEarlyStopping(monitor="val_loss", verbose=1)
+
         with tf.summary.create_file_writer(log_dir).as_default():
             hp.hparams(hparams)
 
-            history = self.__model.fit(X, y, validation_data=(X_val, y_val), epochs=epochs,
-                                       batch_size=batch_size, callbacks=self.__tensorboard_callbacks)
+            self.__model.fit(
+                X, y,
+                validation_data=(X_val, y_val),
+                epochs=epochs,
+                batch_size=batch_size,
+                callbacks=self.__tensorboard_callbacks + [early_stop],
+                verbose=1
+            )
 
             _, accuracy = self.__model.evaluate(X_val, y_val)
             tf.summary.scalar(self.METRIC_ACCURACY, accuracy, step=1)
@@ -123,8 +188,12 @@ class LSTMTrainer:
 
         if accuracy > self.__best_score:
             self.__update_best_args(accuracy, time_end - time_start, hparams)
+            self.save_model()
         elif accuracy == self.__best_score and (time_end - time_start) < self._exec_time:
             self.__update_best_args(accuracy, time_end - time_start, hparams)
+            self.save_model()
+
+        return accuracy, time_end - time_start
 
     def __update_best_args(self, new_accuracy: float, new_time: float, hparams: dict) -> None:
         self.__best_args = hparams
@@ -134,11 +203,22 @@ class LSTMTrainer:
     def save_model(self) -> None:
         if self.__model is None:
             raise ValueError("Model is not initialized")
-        self.__model.save(f"../models/best-lstm{self.__interval}.h5")
-        self.__best_model_path = f"../models/best-lstm{self.__interval}.h5"
+        os.makedirs("../models", exist_ok=True)
+        self.__model.save(f"../models/best-lstm{self.__interval}.keras")
+        self.__best_model_path = f"../models/best-lstm{self.__interval}.keras"
 
     def best_model(self):
         return self.__best_model_path
+
+    def confusion_matrix(self, filename: str, y_true: np.ndarray, y_pred: np.ndarray, tags: list[str]) -> str:
+        self.__model = tf.keras.models.load_model(filename)
+        y_pred = np.argmax(y_pred, axis=1)
+        y_true = np.argmax(y_true, axis=1)
+        plot_filename = "./LSTMlog/CM_" + \
+            filename.split("/")[-1].replace(".keras", ".png")
+        plot_confusion_matrix(y_true, y_pred, tags, plot_filename)
+        plt.close()
+        return plot_filename
 
     def stats(self) -> str:
         return f"Best score: {self.__best_score}, Best args: {self.__best_args}, Execution time: {self._exec_time}"
@@ -162,12 +242,11 @@ if __name__ == "__main__":
         np.random.randint(0, 5, size=(20,)), num_classes=5)
 
     trainer = LSTMTrainer(10)
-    trainer.train_with_hparams(
-        X_train, y_train, X_val, y_val, epochs=5, batch_size=2)
+    trainer.train_with_hparams(X_train, y_train, X_val, y_val,
+                               epochs=5, batch_size=2, categories=[str(i) for i in range(5)])
 
     print(trainer.stats())
 
-    # Start TensorBoard
     tb = program.TensorBoard()
     tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])
     url = tb.launch()

@@ -28,15 +28,18 @@ sec_interval = [0.5]
 
 
 def change_interval_all():
-    sec_interval = [0.1, 0.2, 0.3, 0.4, 0.5,
-                    0.6, 0.7, 0.8, 0.9, 1.0]
+    global sec_interval
+    sec_interval = [0.2, 0.4,
+                    0.6, 0.8, 1.0]
 
 
 def change_interval(value):
+    global sec_interval
     sec_interval = [value]
 
 
 def train(model, path):
+    print(sec_interval)
     for interval in sec_interval:
         trainer = models_map[model](interval)
         dl = DataLoader(
@@ -63,11 +66,15 @@ def train(model, path):
             Y_test_encoded, num_classes=num_classes)
 
         trainer.train_with_hparams(
-            X_train, Y_train, X_test, Y_test, epochs=5, batch_size=2, num_cats=num_classes)
+            X_train, Y_train, X_test, Y_test, epochs=10, batch_size=1, num_cats=num_classes, categories=label_encoder.classes_)
         trainer.save_model()
         trainer.predict(X_test[0])
-
-        return trainer.best_model(), NULL, trainer.stats()
+        cm_file = trainer.confusion_matrix(
+            trainer.best_model(),
+            np.concatenate(Y_train_encoded, Y_test_encoded),
+            np.concatenate(trainer.predict(X_train), trainer.predict(X_test)),
+            label_encoder.classes_)
+        return trainer.best_model(), cm_file, trainer.stats()
 
 
 with gr.Blocks(theme="ParityError/Interstellar") as blocks:
@@ -79,7 +86,7 @@ with gr.Blocks(theme="ParityError/Interstellar") as blocks:
                 path = gr.Textbox(label="Path to dataset")
                 slider = gr.Slider(0.1, 1.0, value=0.5,
                                    step=0.1, label="Sec interval")
-                slider.release(change_interval, inputs=slider, outputs=None)
+                slider.change(change_interval, inputs=slider, outputs=None)
                 all_interval_button = gr.Button("All intervals")
                 button = gr.Button("Train model")
 
