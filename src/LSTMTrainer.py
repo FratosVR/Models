@@ -58,7 +58,7 @@ class LSTMTrainer:
         self.__model = None
         self.__best_score = 0.0
         self.__best_args = {}
-        self._exec_time = float('inf')
+        self.__exec_time = float('inf')
         self.__best_model_path = None
 
     def __model_generator(self, input_shape: tuple[int, int], output_shape: int) -> None:
@@ -175,7 +175,7 @@ class LSTMTrainer:
         f.write(f"Best model: {self.__best_model_path}\n")
         f.write(f"Best score: {self.__best_score}\n")
         f.write(f"Best args: {self.__best_args}\n")
-        f.write(f"Execution time: {self._exec_time}\n")
+        f.write(f"Execution time: {self.__exec_time}\n")
         f.close()
 
         self.confusion_matrix(
@@ -262,7 +262,7 @@ class LSTMTrainer:
         if accuracy > self.__best_score:
             self.__update_best_args(accuracy, time_end - time_start, hparams)
             self.save_model()
-        elif accuracy == self.__best_score and (time_end - time_start) < self._exec_time:
+        elif accuracy == self.__best_score and (time_end - time_start) < self.__exec_time:
             self.__update_best_args(accuracy, time_end - time_start, hparams)
             self.save_model()
 
@@ -277,7 +277,7 @@ class LSTMTrainer:
             hparams (dict): Hyperparameters
         """
         self.__best_args = hparams
-        self._exec_time = new_time
+        self.__exec_time = new_time
         self.__best_score = new_accuracy
 
     def save_model(self) -> None:
@@ -327,7 +327,7 @@ class LSTMTrainer:
         Returns:
             str: Stats of the model
         """
-        return f"Best score: {self.__best_score}, Best args: {self.__best_args}, Execution time: {self._exec_time}"
+        return f"Best score: {self.__best_score}, Best args: {self.__best_args}, Execution time: {self.__exec_time}"
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict the output for the given input.
