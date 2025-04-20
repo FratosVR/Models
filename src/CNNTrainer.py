@@ -6,7 +6,7 @@ import json
 from itertools import product
 from tensorboard.plugins.hparams import api as hp
 from tensorboard import program
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import TensorBoard, EarlyStopping
 from tensorflow.keras import Model
 from tensorflow.keras.layers import (
     Input,
@@ -15,53 +15,39 @@ from tensorflow.keras.layers import (
     Dense, Dropout
 )
 from Utils import plot_confusion_matrix
+from keras_tuner import HyperParameters, Hyperband
+import matplotlib.pyplot as plt
 
 
 class CNNTrainer:
     """CNN Model training manager with hyperparameter tuning using hparams, accepts variable-length input."""
 
-    def __init__(self, interval: float):
-        # Hyperparameter definitions
-        self.HP_KERNEL_SIZE = hp.HParam('kernel_size', hp.Discrete([3, 5]))
-        self.HP_POOL_SIZE = hp.HParam('pool_size', hp.Discrete([2, 3]))
-        self.HP_CONV_FILTERS = hp.HParam(
-            'conv_filters', hp.Discrete([32, 64, 128]))
-        self.HP_DENSE_UNITS = hp.HParam(
-            'dense_units', hp.Discrete([64, 128, 256]))
-        self.HP_DROPOUT_RATE = hp.HParam(
-            'dropout_rate', hp.Discrete([0.0, 0.2, 0.5]))
-        self.HP_ACTIVATION = hp.HParam(
-            'activation', hp.Discrete(['relu', 'elu', 'tanh']))
-        self.HP_OPTIMIZER = hp.HParam(
-            'optimizer', hp.Discrete(['adam', 'sgd', 'rmsprop']))
-        self.HP_LEARNING_RATE = hp.HParam(
-            'learning_rate', hp.Discrete([0.0001, 0.001, 0.01]))
+    def __init__(self, interval: float, tensorboard_log_dir: str = "./logs/hparams_CNN"):
+        """Constructor for LSTMTrainer.
+        Initializes hyperparameters, HParams and TensorBoard log directory.
 
-        self.METRIC_ACCURACY = 'accuracy'
+        Args:
+            interval (float): Interval of which data is transmited to the model.
+            tensorboard_log_dir (str, optional): Directory for TensorBoard logs.
+        """
         self.__interval = interval
-        self.__tensorboard_log_dir = f"./logs/hparams_CNN{interval}"
-        self.__tensorboard_callbacks = [
-            tf.keras.callbacks.TensorBoard(
-                log_dir=self.__tensorboard_log_dir, histogram_freq=1)
-        ]
-
-        # Default hyperparameter values
-        self.__conv_filters = 32
-        self.__kernel_size = 3
-        self.__pool_size = 2
-        self.__dense_units = 64
-        self.__dropout_rate = 0.0
-        self.__activation = 'relu'
-        self.__optimizer = 'adam'
-        self.__learning_rate = 0.001
         self.__model = None
-        self.__best_score = 0.0
-        self.__exec_time = float('inf')
-        self.__best_args = {}
-        self.__best_model_path = None
+        self.__best_model_path = f"best_cnn_{interval}.keras"
+        self.__tensorboard_log_dir = tensorboard_log_dir
+        self.__tensorboard_callbacks = [TensorBoard(
+            log_dir=os.path.join(tensorboard_log_dir, interval))]
+        self.__best_acc = 0.0
+        self.__tuner = None
 
     def __model_generator(self, n_features: int, n_classes: int) -> None:
-        """Builds a Conv1D+GlobalAveragePooling1D model that accepts variable-length sequences."""
+        """LEGACY 
+
+        Generates a model with the given input and output shape.
+
+        Args:
+            input_shape (tuple[int, int]): input shape
+            output_shape (int): output shape
+        """
         inp = Input(shape=(None, n_features), name="animation_frames")
         x = Conv1D(filters=self.__conv_filters,
                    kernel_size=self.__kernel_size,
@@ -91,150 +77,257 @@ class CNNTrainer:
                            X_val: np.ndarray = None, y_val: np.ndarray = None,
                            epochs: int = 10, batch_size: int = 1,
                            num_cats: int = 6, categories: list[str] = None) -> None:
-        os.makedirs(self.__tensorboard_log_dir, exist_ok=True)
-        completed_runs_path = os.path.join(
-            self.__tensorboard_log_dir, f"completed_runs_{self.__interval}.json")
+        """Train the model with all the combinations of Hparams.
 
-        completed_runs = {}
-        if os.path.exists(completed_runs_path):
-            with open(completed_runs_path, "r") as f:
-                completed_runs = json.load(f)
+        Args:
+            X (np.ndarray): Input data
+            y (np.ndarray): Input categories
+            X_val (np.ndarray, optional): Validation input data. Defaults to None.
+            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
+            epochs (int, optional): Number of epochs. Defaults to 10.
+            batch_size (int, optional): Batch size. Defaults to 1.
+            num_cats (int, optional): Number of categories. Defaults to 6.
+            categories (list[str], optional): List of categories. Defaults to None.
+        """
+        self.__input_shape = X.shape[1:]
+        self.__num_cats = num_cats
 
-        session_num = 0
-        hparam_combinations = list(product(
-            self.HP_CONV_FILTERS.domain.values,
-            self.HP_KERNEL_SIZE.domain.values,
-            self.HP_POOL_SIZE.domain.values,
-            self.HP_DENSE_UNITS.domain.values,
-            self.HP_DROPOUT_RATE.domain.values,
-            self.HP_ACTIVATION.domain.values,
-            self.HP_OPTIMIZER.domain.values,
-            self.HP_LEARNING_RATE.domain.values
-        ))
+        tuner_logdir = os.path.join(self.__tensorboard_log_dir, "keras_tuner")
+        os.makedirs(tuner_logdir, exist_ok=True)
 
-        n_features = X.shape[-1]
-        for hparam_values in hparam_combinations:
-            hparams = {
-                self.HP_CONV_FILTERS: hparam_values[0],
-                self.HP_KERNEL_SIZE: hparam_values[1],
-                self.HP_POOL_SIZE: hparam_values[2],
-                self.HP_DENSE_UNITS: hparam_values[3],
-                self.HP_DROPOUT_RATE: hparam_values[4],
-                self.HP_ACTIVATION: hparam_values[5],
-                self.HP_OPTIMIZER: hparam_values[6],
-                self.HP_LEARNING_RATE: hparam_values[7]
-            }
-            run_name = f"run-{session_num}"
-            session_log_dir = os.path.join(
-                self.__tensorboard_log_dir, run_name)
+        tuner = Hyperband(
+            self.__build_model,
+            objective="val_accuracy",
+            max_epochs=epochs,
+            factor=3,
+            directory=tuner_logdir,
+            project_name=f"tune_lstm_{self.__interval}",
+            overwrite=True
+        )
+        self.__tuner = tuner
 
-            if run_name in completed_runs and completed_runs[run_name].get('status') == 'done':
-                print(f"Skipping completed {run_name}")
-                session_num += 1
-                continue
+        tuner.search(
+            X, y,
+            validation_data=(X_val, y_val),
+            epochs=epochs,
+            batch_size=batch_size,
+            callbacks=self.__tensorboard_callbacks + [
+                EarlyStopping(monitor="val_accuracy", patience=3)
+            ],
+            verbose=1
+        )
 
-            print(f"Starting {run_name} with hparams: {hparams}")
-            (self.__conv_filters, self.__kernel_size,
-             self.__pool_size, self.__dense_units,
-             self.__dropout_rate, self.__activation,
-             self.__optimizer, self.__learning_rate) = hparam_values
+        best_model = tuner.get_best_models(num_models=1)[0]
+        best_hp = tuner.get_best_hyperparameters(1)[0]
 
-            self.__model_generator(n_features, num_cats)
-            acc, exec_time = self.train(
-                X, y, X_val, y_val, epochs, batch_size,
-                session_log_dir, hparams)
+        self.__model = best_model
+        self.__update_best_args(best_model.evaluate(X_val, y_val)[
+                                1], best_hp.values)
+        self.save_model()
 
-            completed_runs[run_name] = {
-                "status": "done", "acc": acc, "exec_time": exec_time}
-            with open(completed_runs_path, "w") as f:
-                json.dump(completed_runs, f, indent=2)
-
-            session_num += 1
-            del self.__model
-            self.__model = None
-
-        self._save_best_model_report(categories, X, X_val, y, y_val)
+        self.confusion_matrix(
+            self.__best_model_path,
+            y_true=np.concatenate((y, y_val)),
+            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            tags=categories
+        )
 
     def train(self, X: np.ndarray, y: np.ndarray,
               X_val: np.ndarray = None, y_val: np.ndarray = None,
               epochs: int = 10, batch_size: int = 1,
-              log_dir: str = None, hparams: dict = None) -> tuple:
-        if self.__model is None:
-            raise ValueError("Model not initialized")
+              log_dir: str = None, hparams: dict = None) -> None:
+        """Train the model with the given parameters.
 
-        if self.__optimizer == 'adam':
-            opt = tf.keras.optimizers.Adam(learning_rate=self.__learning_rate)
-        elif self.__optimizer == 'sgd':
-            opt = tf.keras.optimizers.SGD(learning_rate=self.__learning_rate)
-        else:
-            opt = tf.keras.optimizers.RMSprop(
-                learning_rate=self.__learning_rate)
+        Args:
+            X (np.ndarray): Input data
+            y (np.ndarray): Input categories
+            X_val (np.ndarray, optional): Validation input data. Defaults to None.
+            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
+            epochs (int, optional): Number of epochs. Defaults to 10.
+            batch_size (int, optional): Batch size. Defaults to 1.
+            log_dir (str, optional): Log directory. Defaults to None.
+            hparams (dict, optional): Hyperparameters. Defaults to None.
 
-        self.__model.compile(optimizer=opt,
-                             loss='categorical_crossentropy',
-                             metrics=['accuracy'])
+        Returns:
+            list[float]: Accuracy and execution time
+        """
+        input_shape = X.shape[1:]
 
-        early_stop = EarlyStopping(
-            monitor='val_accuracy', patience=2, restore_best_weights=True)
+        self.__model = tf.keras.Sequential([
+            tf.keras.layers.LSTM(units=num_cats, input_shape=input_shape),
+            tf.keras.layers.Dense(num_cats, activation="softmax")
+        ])
 
-        start_time = time.time()
+        self.__model.compile(
+            optimizer="adam",
+            loss="categorical_crossentropy",
+            metrics=["accuracy"]
+        )
+
         history = self.__model.fit(
             X, y,
             validation_data=(X_val, y_val),
             epochs=epochs,
             batch_size=batch_size,
-            callbacks=self.__tensorboard_callbacks + [early_stop],
-            verbose=0
+            callbacks=self.__tensorboard_callbacks
         )
 
-        _, accuracy = self.__model.evaluate(X_val, y_val, verbose=0)
-        exec_time = time.time() - start_time
+        acc = history.history["val_accuracy"][-1]
+        self.__update_best_args(acc)
+        self.save_model()
 
-        with tf.summary.create_file_writer(log_dir).as_default():
-            hp.hparams(hparams)
-            tf.summary.scalar(self.METRIC_ACCURACY, accuracy, step=1)
+        self.confusion_matrix(
+            self.__best_model_path,
+            y_true=np.concatenate((y, y_val)),
+            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            tags=categories
+        )
 
-        if accuracy > self.__best_score or (
-                accuracy == self.__best_score and exec_time < self.__exec_time):
-            self.__best_score = accuracy
-            self.__exec_time = exec_time
-            self.__best_args = hparams
-            self.save_model()
+    def __build_model(self, hp: HyperParameters) -> tf.keras.Model:
+        """Build the model with the given hyperparameters.
+        Args:
+            hp (HyperParameters): Hyperparameters (automatically created by keras tuner)
+        Returns:
+            tf.keras.Model: Model
+        """
+        self.__conv_filters = hp.Int("conv_filters", 16, 64, step=16)
+        self.__kernel_size = hp.Int("kernel_size", 2, 5, step=1)
+        self.__activation = hp.Choice("activation", ["relu", "tanh"])
+        self.__pool_size = hp.Int("pool_size", 2, 4, step=1)
+        self.__dense_units = hp.Int("dense_units", 32, 128, step=16)
+        self.__dropout_rate = hp.Float("dropout_rate", 0.1, 0.5, step=0.1)
 
-        return accuracy, exec_time
+        model = tf.keras.Sequential()
+        model.add(Input(shape=self.__input_shape))
+        model.add(Conv1D(filters=self.__conv_filters,
+                         kernel_size=self.__kernel_size,
+                         activation=self.__activation,
+                         padding='same'))
+        model.add(MaxPooling1D(pool_size=self.__pool_size, padding='same'))
+
+        model.add(Conv1D(filters=self.__conv_filters * 2,
+                         kernel_size=self.__kernel_size,
+                         activation=self.__activation,
+                         padding='same'))
+        model.add(MaxPooling1D(pool_size=self.__pool_size, padding='same'))
+
+        model.add(Conv1D(filters=self.__conv_filters * 2,
+                         kernel_size=self.__kernel_size,
+                         activation=self.__activation,
+                         padding='same'))
+        model.add(GlobalAveragePooling1D())
+        model.add(Dense(self.__dense_units, activation=self.__activation))
+        model.add(Dropout(self.__dropout_rate))
+        model.add(Dense(self.__num_cats, activation='softmax'))
+
+        model.compile(optimizer='adam',
+                      loss='categorical_crossentropy',
+                      metrics=['accuracy'])
+        return model
+
+    def __update_best_args(self, acc: float, hparams: dict = None) -> None:
+        """Update the best arguments with the new accuracy and time.
+
+        Args:
+            new_accuracy (float): New accuracy
+            new_time (float): New time
+            hparams (dict): Hyperparameters
+        """
+        if acc > self.__best_acc:
+            self.__best_acc = acc
+            print(f"New best accuracy: {acc:.4f}")
+            if hparams:
+                print(f"Best hyperparameters: {hparams}")
 
     def save_model(self) -> None:
+        """Save the model to a file.
+
+        Raises:
+            ValueError: If the model is not initialized
+        """
+        if self.__model is None:
+            raise ValueError("Model is not initialized")
         os.makedirs("../models", exist_ok=True)
-        model_path = f"../models/best-cnn{self.__interval}.keras"
-        self.__model.save(model_path)
-        self.__best_model_path = model_path
+        self.__model.save(f"../models/best-cnn{self.__interval}.keras")
+        self.__best_model_path = f"../models/best-cnn{self.__interval}.keras"
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         return self.__model.predict(X)
 
+    def best_model(self) -> str:
+        """Get the best model path.
+
+        Returns:
+            str: Path to the best model
+        """
+        return self.__best_model_path
+
+    def confusion_matrix(self, filename: str, y_true: np.ndarray, y_pred: np.ndarray, tags: list[str]) -> str:
+        """Generate a confusion matrix for the given model.
+
+        Args:
+            filename (str): Path to the model file
+            y_true (np.ndarray): True labels
+            y_pred (np.ndarray): Predicted labels
+            tags (list[str]): List of tags
+
+        Returns:
+            str: Path to the confusion matrix image
+        """
+        self.__model = tf.keras.models.load_model(filename)
+        y_pred = np.argmax(y_pred, axis=1)
+        y_true = np.argmax(y_true, axis=1)
+        plot_filename = "./LSTMlog/CM_" + \
+            filename.split("/")[-1].replace(".keras", ".png")
+        plot_confusion_matrix(y_true, y_pred, tags, plot_filename)
+        plt.close()
+        return plot_filename
+
     def stats(self) -> str:
-        return f"Best Accuracy: {self.__best_score:.4f}, Time: {self.__exec_time:.2f}s, Params: {self.__best_args}"
+        """Get the stats of the model.
+
+        Returns:
+            str: Stats of the model
+        """
+        return f"Best score: {self.__best_acc}"
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict the output for the given input.
+
+        Args:
+            X (np.ndarray): Input data
+
+        Returns:
+            np.ndarray: Predicted output
+
+        Raises:
+            ValueError: If the model is not initialized
+        """
+        if self.__model is None:
+            raise ValueError("Model is not initialized")
+        return self.__model.predict(X)
 
     def get_log_dir(self) -> str:
+        """Get the log directory.
+
+        Returns:
+            str: Log directory
+        """
         return self.__tensorboard_log_dir
 
 
 if __name__ == "__main__":
-    # Example usage with variable-length sequences
-    X_train = np.random.randn(100, np.random.randint(5, 10), 56)
+    X_train = np.random.randn(100, 10, 1)
     y_train = tf.keras.utils.to_categorical(
         np.random.randint(0, 6, size=(100,)), num_classes=6)
 
-    X_val = np.random.randn(20, np.random.randint(5, 10), 56)
+    X_val = np.random.randn(20, 10, 1)
     y_val = tf.keras.utils.to_categorical(
         np.random.randint(0, 6, size=(20,)), num_classes=6)
 
-    trainer = CNNTrainer(interval=10)
-    trainer.train_with_hparams(
-        X_train, y_train, X_val, y_val,
-        epochs=5, batch_size=2, num_cats=6,
-        categories=[str(i) for i in range(6)]
-    )
+    trainer = CNNTrainer('10')
+    trainer.train_with_hparams(X_train, y_train, X_val, y_val,
+                               epochs=5, batch_size=2, categories=[str(i) for i in range(6)])
 
     print(trainer.stats())
 
@@ -242,3 +335,5 @@ if __name__ == "__main__":
     tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])
     url = tb.launch()
     print(f"TensorBoard started at {url}")
+    while True:
+        time.sleep(1)

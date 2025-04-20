@@ -158,7 +158,7 @@ class LSTMTrainer:
             tags=categories
         )
 
-    def __build_model(self, hp: HyperParameters):
+    def __build_model(self, hp: HyperParameters) -> tf.keras.Model:
         """Build the model with the given hyperparameters.
         Args:
             hp (HyperParameters): Hyperparameters (automatically created by keras tuner)
@@ -257,7 +257,7 @@ class LSTMTrainer:
         Returns:
             str: Stats of the model
         """
-        return f"Best score: {self.__best_acc}, Best args: {self.__best_args}"
+        return f"Best score: {self.__best_acc}"
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predict the output for the given input.

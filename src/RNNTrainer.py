@@ -122,7 +122,7 @@ class RNNTrainer:
         )
 
     def train(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
-              epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> list[float]:
+              epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> None:
         """Train the model with the given parameters.
 
         Args:
@@ -134,9 +134,6 @@ class RNNTrainer:
             batch_size (int, optional): Batch size. Defaults to 1.
             log_dir (str, optional): Log directory. Defaults to None.
             hparams (dict, optional): Hyperparameters. Defaults to None.
-
-        Returns:
-            list[float]: Accuracy and execution time
         """
         input_shape = X.shape[1:]
 
@@ -319,7 +316,7 @@ class RNNTrainer:
         Returns:
             str: Stats of the model
         """
-        return f"Best score: {self.__best_score}, Best args: {self.__best_args}"
+        return f"Best score: {self.__best_acc}"
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predicts the output given an input.
