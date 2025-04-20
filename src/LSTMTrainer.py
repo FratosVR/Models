@@ -49,6 +49,10 @@ class LSTMTrainer:
                 log_dir=self.__tensorboard_log_dir, histogram_freq=1)
         ]
 
+        # These are sampling points, not part of the HParam definition
+        self._dropout_values = [0.0, 0.2, 0.5]
+        self._recurrent_dropout_values = [0.0, 0.2, 0.5]
+
         self.__dropout = 0.0
         self.__recurrent_dropout = 0.0
         self.__activation = "tanh"
