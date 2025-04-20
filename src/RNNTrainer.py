@@ -108,7 +108,9 @@ class RNNTrainer:
         """Best hyperparameters found."""
         self.__best_args = {}
         """Execution time of the best model."""
-        self._exec_time = float('inf')
+        self.__exec_time = float('inf')
+        """Best model path."""
+        self.__best_model_path = f"../model/best-rnn{self.__interval}.h5"
 
     def __model_generator(self, input_shape: tuple[int, int], output_shape: int) -> None:
         """generates a model given an input shape and an output shape.
@@ -140,26 +142,37 @@ class RNNTrainer:
             tf.keras.layers.Dense(output_shape, activation='softmax')
         ])
 
-    def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, epochs: int = 10, batch_size: int = 1, num_cats: int = 5) -> None:
-        """Trains a model with all possible parameters.
+    def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
+                           epochs: int = 10, batch_size: int = 1, num_cats: int = 6, categories: list[str] = None) -> None:
+        """Train the model with all the combinations of Hparams.
 
         Args:
-            X (np.ndarray): train X
-            y (np.ndarray): train Y
-            X_val (np.ndarray, optional): Validation X. Defaults to None.
-            y_val (np.ndarray, optional): Validation Y. Defaults to None.
-            epochs (int, optional): number of epochs in training. Defaults to 10.
-            batch_size (int, optional): batch size in training. Defaults to 1.
-            num_cats (int, optional): number of categories to be classified. Defaults to 5.
+            X (np.ndarray): Input data
+            y (np.ndarray): Input categories
+            X_val (np.ndarray, optional): Validation input data. Defaults to None.
+            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
+            epochs (int, optional): Number of epochs. Defaults to 10.
+            batch_size (int, optional): Batch size. Defaults to 1.
+            num_cats (int, optional): Number of categories. Defaults to 6.
+            categories (list[str], optional): List of categories. Defaults to None.
         """
 
-        # Create loggin directory
+        # Create the log directory if it doesn't exist
         os.makedirs(self.__tensorboard_log_dir, exist_ok=True)
+
+        # read the already completed runs if there are any, if not create a new log
+        completed_runs_path = os.path.join(
+            self.__tensorboard_log_dir, f"completed_runs_{self.__interval}.json")
+        if os.path.exists(completed_runs_path):
+            with open(completed_runs_path, "r") as f:
+                completed_runs = json.load(f)
+        else:
+            completed_runs = {}
 
         session_num = 0
 
         # Generate all possible combinations of hyperparameters
-        hparams_combinations = list(product(
+        hparams_combinations = set(product(
             self.HP_ACTIVATION.domain.values,
             self.HP_USE_BIAS.domain.values,
             self.HP_KERNEL_INITIALIZER.domain.values,
@@ -197,10 +210,19 @@ class RNNTrainer:
             }
 
             run_name = f"run-{session_num}"
+            # create session log directory
             session_log_dir = os.path.join(
                 self.__tensorboard_log_dir, run_name)
-            print(f"Starting experiment {run_name} with {hparams}")
 
+            # if run already completed, skip
+            if run_name in completed_runs and completed_runs[run_name] == "done":
+                print(f"{run_name} already completed, skipping.")
+                session_num += 1
+                continue
+
+            print(f"Starting train {run_name} with {hparams}")
+
+            # set hyperparameters
             self.__activation = hparam_values[0]
             self.__use_bias = hparam_values[1]
             self.__kernel_initializer = hparam_values[2]
@@ -217,49 +239,112 @@ class RNNTrainer:
             self.__recurrent_dropout = hparam_values[13]
             self.__unroll = hparam_values[14]
 
+            # generate model
             self.__model_generator(X[0].shape, num_cats)
-            self.train(X, y, X_val, y_val, epochs,
-                       batch_size, session_log_dir, hparams)
+
+            # train model
+            (acc, exec_time) = self.train(X, y, X_val, y_val, epochs,
+                                          batch_size, session_log_dir, hparams)
+            # log results
+            completed_runs[run_name] = {
+                "status": "done", "acc": acc, "exec_time": exec_time}
+
+            # write log to final log
+            with open(completed_runs_path, "w") as f:
+                json.dump(completed_runs, f, indent=2)
 
             session_num += 1
+            # delete model to free memory
+            del self.__model
+            self.__model = None
 
-    def train(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> None:
+        # write the best model to a file
+        os.makedirs("./RNNLog", exist_ok=True)
+        f = open(os.path.join(
+            "./RNNlog", f"best_model_{self.__interval}.txt"), "w")
+        f.write(f"Best model: {self.__best_model_path}\n")
+        f.write(f"Best score: {self.__best_score}\n")
+        f.write(f"Best args: {self.__best_args}\n")
+        f.write(f"Execution time: {self.__exec_time}\n")
+        f.close()
+
+    def train(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
+              epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> list[float]:
         """Train the model with the given parameters.
 
         Args:
-            X (np.ndarray): train X
-            y (np.ndarray): train Y
-            X_val (np.ndarray, optional): Validation X. Defaults to None.
-            y_val (np.ndarray, optional): Validation Y. Defaults to None.
-            epochs (int, optional): number of epochs. Defaults to 10.
-            batch_size (int, optional): batch size. Defaults to 1.
+            X (np.ndarray): Input data
+            y (np.ndarray): Input categories
+            X_val (np.ndarray, optional): Validation input data. Defaults to None.
+            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
+            epochs (int, optional): Number of epochs. Defaults to 10.
+            batch_size (int, optional): Batch size. Defaults to 1.
+            log_dir (str, optional): Log directory. Defaults to None.
+            hparams (dict, optional): Hyperparameters. Defaults to None.
+
+        Returns:
+            list[float]: Accuracy and execution time
 
         Raises:
-            ValueError: if the model is None
+            ValueError: If the model is not initialized
         """
+
+        # if the model is none, exception
         if self.__model is None:
             raise ValueError("Model is not initialized")
 
         self.__model.compile(
             optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 
+        class CustomEarlyStopping(EarlyStopping):
+            """Custom early stopping class to stop training when the accuracy does not improve."""
+
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self.prev_losses = []
+
+            def on_epoch_end(self, epoch, logs=None):
+                # Evaluate the accuracy of the last two epochs. if there is no improvement, stop training
+                current_loss = logs.get("accuracy")
+                self.prev_losses.append(current_loss)
+                if len(self.prev_losses) >= 2:
+                    loss1, loss2 = self.prev_losses[-2], self.prev_losses[-1]
+                    if loss1 is not None and loss2 is not None:
+                        improvement = (loss1 - loss2) / (loss1 + 1e-8)
+                        if improvement == 0:
+                            print(
+                                f"Early stopping at epoch {epoch+1}: Improvement {improvement*100:.2f}%")
+                            self.model.stop_training = True
+
+        early_stop = CustomEarlyStopping(monitor="accuracy", verbose=1)
+
         with tf.summary.create_file_writer(log_dir).as_default():
             hp.hparams(hparams)
-            history = self.__model.fit(X, y, epochs=epochs, batch_size=batch_size, validation_data=(
-                X_val, y_val), callbacks=self.__tensorboard_callbacks)
+            history = self.__model.fit(
+                X, y,
+                epochs=epochs,
+                batch_size=batch_size,
+                validation_data=(X_val, y_val),
+                callbacks=self.__tensorboard_callbacks + [early_stop],
+                verbose=1
+            )
 
+            # log the accuracy to tensorboard
             _, accuracy = self.__model.evaluate(X_val, y_val)
-
             tf.summary.scalar(self.METRIC_ACCURACY, accuracy, step=1)
 
+        # get the prediction time for one example
         time_start: float = time.time()
         self.__model.predict(X_val[0])
         time_end: float = time.time()
 
+        # Evaluate possible best model
         if accuracy > self.__best_score:
             self.__update_best_args(accuracy, time_end - time_start, hparams)
-        elif accuracy == self.__best_score and (time_end - time_start) < self._exec_time:
+            self.save_model()
+        elif accuracy == self.__best_score and (time_end - time_start) < self.__exec_time:
             self.__update_best_args(accuracy, time_end - time_start, hparams)
+            self.save_model()
 
     def __update_best_args(self, new_accuracy: float, new_time: float, hparams: dict) -> None:
         """updates the best arguments found when a new model is better than the previous one.
@@ -270,7 +355,7 @@ class RNNTrainer:
             hparams (dict): new hyperparameters found
         """
         self.__best_score = new_accuracy
-        self._exec_time = new_time
+        self.__exec_time = new_time
         self.__best_args = hparams
 
     def save_model(self) -> None:
@@ -282,6 +367,43 @@ class RNNTrainer:
         if self.__model is None:
             raise ValueError("Model is not initialized")
         self.__model.save(f"../model/best-rnn{self.__interval}.h5")
+
+    def best_model(self) -> str:
+        """Get the best model path.
+
+        Returns:
+            str: Path to the best model
+        """
+        return self.__best_model_path
+
+    def confusion_matrix(self, filename: str, y_true: np.ndarray, y_pred: np.ndarray, tags: list[str]) -> str:
+        """Generate a confusion matrix for the given model.
+
+        Args:
+            filename (str): Path to the model file
+            y_true (np.ndarray): True labels
+            y_pred (np.ndarray): Predicted labels
+            tags (list[str]): List of tags
+
+        Returns:
+            str: Path to the confusion matrix image
+        """
+        self.__model = tf.keras.models.load_model(filename)
+        y_pred = np.argmax(y_pred, axis=1)
+        y_true = np.argmax(y_true, axis=1)
+        plot_filename = "./RNNlog/CM_" + \
+            filename.split("/")[-1].replace(".keras", ".png")
+        plot_confusion_matrix(y_true, y_pred, tags, plot_filename)
+        plt.close()
+        return plot_filename
+
+    def stats(self) -> str:
+        """Get the stats of the model.
+
+        Returns:
+            str: Stats of the model
+        """
+        return f"Best score: {self.__best_score}, Best args: {self.__best_args}, Execution time: {self.__exec_time}"
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """Predicts the output given an input.
@@ -295,6 +417,14 @@ class RNNTrainer:
         if self.__model is None:
             raise ValueError("Model is not initialized")
         return self.__model.predict(X)
+
+    def get_log_dir(self) -> str:
+        """Get the log directory.
+
+        Returns:
+            str: Log directory
+        """
+        return self.__tensorboard_log_dir
 
 
 if __name__ == "__main__":

@@ -1,5 +1,4 @@
 import gradio as gr
-from gradio_iframe import iFrame
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
