@@ -359,3 +359,5 @@ if __name__ == "__main__":
     tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])
     url = tb.launch()
     print(f"TensorBoard started at {url}")
+    while True:
+        time.sleep(1)
