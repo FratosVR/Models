@@ -5,16 +5,17 @@ import tensorflow as tf
 from tensorboard import program
 import numpy as np
 # from RandomForestTrainer import RandomForestTrainer
-# from RNNTrainer import RNNTrainer
+from RNNTrainer import RNNTrainer
 # from CNNTrainer import CNNTrainer
 from LSTMTrainer import LSTMTrainer
 from DataLoader import DataLoader
 
 
-models = ["LSTM"]
+models = ["LSTM", "RNN"]
 
 models_map = {
     "LSTM": LSTMTrainer,
+    "RNN": RNNTrainer
 }
 
 log_path = "./logs"
