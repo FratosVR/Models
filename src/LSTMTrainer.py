@@ -75,7 +75,7 @@ class LSTMTrainer:
         tuner = Hyperband(
             self.__build_model,
             objective="val_accuracy",
-            max_epochs=epochs,
+            max_epochs=epochs * 3,
             factor=3,
             directory=tuner_logdir,
             project_name=f"tune_lstm_{self.__interval}",

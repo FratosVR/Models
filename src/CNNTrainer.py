@@ -23,7 +23,7 @@ class CNNTrainer:
     """CNN Model training manager with hyperparameter tuning using hparams, accepts variable-length input."""
 
     def __init__(self, interval: float, tensorboard_log_dir: str = "./logs/hparams_CNN"):
-        """Constructor for LSTMTrainer.
+        """Constructor for CNNTrainer.
         Initializes hyperparameters, HParams and TensorBoard log directory.
 
         Args:
