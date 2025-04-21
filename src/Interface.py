@@ -4,18 +4,20 @@ from sklearn.preprocessing import LabelEncoder
 import tensorflow as tf
 from tensorboard import program
 import numpy as np
-# from RandomForestTrainer import RandomForestTrainer
+from RandomForestTrainer import RandomForestTrainer
 from RNNTrainer import RNNTrainer
-# from CNNTrainer import CNNTrainer
+from CNNTrainer import CNNTrainer
 from LSTMTrainer import LSTMTrainer
 from DataLoader import DataLoader
 
 
-models = ["LSTM", "RNN"]
+models = ["LSTM", "RNN", "CNN", "RandomForest"]
 
 models_map = {
     "LSTM": LSTMTrainer,
-    "RNN": RNNTrainer
+    "RNN": RNNTrainer,
+    "CNN": CNNTrainer,
+    "RandomForest": RandomForestTrainer
 }
 
 log_path = "./logs"
@@ -41,7 +43,7 @@ def change_interval(value):
 def train(model, path):
     print(sec_interval)
     for interval in sec_interval:
-        trainer = models_map[model](interval)
+        trainer = models_map[model](f"{interval}")
         dl = DataLoader(
             path, interval)
         data = dl.load_dataset()
