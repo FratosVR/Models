@@ -26,6 +26,7 @@ class LSTMTrainer:
         self.__interval = interval
         self.__model = None
         self.__best_model_path = f"best_ltsm_{interval}.keras"
+        self.__cm_file_path = None
         self.__tensorboard_log_dir = tensorboard_log_dir
         self.__tensorboard_callbacks = [TensorBoard(
             log_dir=os.path.join(tensorboard_log_dir, interval))]
@@ -102,7 +103,7 @@ class LSTMTrainer:
                                 1], best_hp.values)
         self.save_model()
 
-        self.confusion_matrix(
+        self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
             y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
@@ -154,7 +155,7 @@ class LSTMTrainer:
         y_pred = [self.__model.predict(x)
                   for x in np.concatenate((X, X_val), axis=1)]
 
-        self.confusion_matrix(
+        self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
             y_pred=y_pred,
@@ -268,7 +269,7 @@ class LSTMTrainer:
         Returns:
             str: Path to the confusion matrix image
         """
-        return self.__best_model_path.replace(".keras", ".png")
+        return self.__cm_file_path
 
     def stats(self) -> str:
         """Get the stats of the model.
