@@ -151,10 +151,13 @@ class LSTMTrainer:
         self.__update_best_args(acc)
         self.save_model()
 
+        y_pred = [self.__model.predict(x)
+                  for x in np.concatenate((X, X_val), axis=1)]
+
         self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
-            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            y_pred=y_pred,
             tags=categories
         )
 
@@ -251,6 +254,22 @@ class LSTMTrainer:
         plt.close()
         return plot_filename
 
+    def get_best_acc(self) -> float:
+        """Get the best accuracy.
+
+        Returns:
+            float: Best accuracy
+        """
+        return self.__best_acc
+
+    def get_confusion_matrix(self) -> str:
+        """Get the confusion matrix.
+
+        Returns:
+            str: Path to the confusion matrix image
+        """
+        return self.__best_model_path.replace(".keras", ".png")
+
     def stats(self) -> str:
         """Get the stats of the model.
 
@@ -298,6 +317,8 @@ if __name__ == "__main__":
                                epochs=5, batch_size=2, categories=[str(i) for i in range(6)])
 
     print(trainer.stats())
+
+    trainer.predict(X_val[0:1])
 
     tb = program.TensorBoard()
     tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])

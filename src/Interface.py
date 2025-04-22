@@ -20,11 +20,6 @@ models_map = {
     "RandomForest": RandomForestTrainer
 }
 
-log_path = "./logs"
-tb = program.TensorBoard()
-tb.configure(argv=[None, '--logdir', log_path])
-url = tb.launch()
-
 
 sec_interval = [0.5]
 
@@ -42,13 +37,20 @@ def change_interval(value):
 
 def train(model, path):
     print(sec_interval)
+    best_acc = 0
+    best_interval = 0
+    best_model = None
+    cm_file = None
+    stats = None
     for interval in sec_interval:
         trainer = models_map[model](f"{interval}")
+        global log_path
+        trainer.get_log_dir()
         dl = DataLoader(
             path, interval)
         data = dl.load_dataset()
         train_data, test_data = train_test_split(
-            data, test_size=0.2, random_state=42)
+            data, test_size=0.25, random_state=42)
         Y_train, X_train = zip(*train_data)
         Y_test, X_test = zip(*test_data)
 
@@ -68,15 +70,24 @@ def train(model, path):
             Y_test_encoded, num_classes=num_classes)
 
         trainer.train_with_hparams(
-            X_train, Y_train, X_test, Y_test, epochs=10, batch_size=1, num_cats=num_classes, categories=label_encoder.classes_)
+            X_train, Y_train, X_test, Y_test, epochs=20, batch_size=1, num_cats=num_classes, categories=label_encoder.classes_)
         trainer.save_model()
-        trainer.predict(X_test[0])
-        cm_file = trainer.confusion_matrix(
-            trainer.best_model(),
-            np.concatenate(Y_train_encoded, Y_test_encoded),
-            np.concatenate(trainer.predict(X_train), trainer.predict(X_test)),
-            label_encoder.classes_)
-        return trainer.best_model(), cm_file, trainer.stats()
+        acc = trainer.get_best_acc()
+        if acc > best_acc:
+            best_acc = acc
+            best_interval = interval
+            best_model = trainer.best_model()
+            cm_file = trainer.get_confusion_matrix()
+            stats = trainer.stats()
+
+    return best_model, np.fromfile(cm_file), stats
+
+
+def refresh_tensorboard(log_path):
+    tb = program.TensorBoard()
+    tb.configure(argv=[None, '--logdir', log_path])
+    url = tb.launch()
+    return gr.update()
 
 
 with gr.Blocks(theme="ParityError/Interstellar") as blocks:
@@ -102,9 +113,13 @@ with gr.Blocks(theme="ParityError/Interstellar") as blocks:
             button.click(train, inputs=[model_dd, path], outputs=[
                 trained_model, conf_mat, stats])
     with gr.Tab("Tensorboard"):
-        gr.HTML(f"""
-<iframe src="{url}" width="100%" height="800px" frameborder="0"></iframe>
+        log_path = gr.Textbox(
+            label="Log path", value="./logs", interactive=True)
+        log_buttom = gr.Button("Refresh tensorboard")
+        iframe = gr.HTML(f"""
+<iframe src="http://localhost:6006" width="100%" height="800px" frameborder="0"></iframe>
 """)
+        log_buttom.click(refresh_tensorboard,
+                         inputs=[log_path], outputs=[iframe])
 
-print("Tensorboard at ", url)
 blocks.launch()
