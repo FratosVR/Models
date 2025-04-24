@@ -63,7 +63,7 @@ class RNNTrainer:
             tf.keras.layers.Dense(output_shape, activation='softmax')
         ])
 
-    def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
+    def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, X_test: np.ndarray = None, y_test: np.ndarray = None,
                            epochs: int = 10, batch_size: int = 1, num_cats: int = 6, categories: list[str] = None) -> None:
         """Train the model with all the combinations of Hparams.
 
@@ -90,7 +90,7 @@ class RNNTrainer:
             max_epochs=epochs,
             factor=3,
             directory=tuner_logdir,
-            project_name=f"tune_lstm_{self.__interval}",
+            project_name=f"tune_rnn_{self.__interval}",
             overwrite=True
         )
         self.__tuner = tuner
@@ -110,8 +110,9 @@ class RNNTrainer:
         best_hp = tuner.get_best_hyperparameters(1)[0]
 
         self.__model = best_model
-        self.__update_best_args(best_model.evaluate(X_val, y_val)[
+        self.__update_best_args(best_model.evaluate(X_test, X_test)[
                                 1], best_hp.values)
+
         self.save_model()
 
         self.confusion_matrix(
@@ -160,10 +161,13 @@ class RNNTrainer:
         self.__update_best_args(acc)
         self.save_model()
 
-        self.confusion_matrix(
+        y_pred = [self.__model.predict(x)
+                  for x in np.concatenate((X, X_val), axis=1)]
+
+        self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
-            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            y_pred=y_pred,
             tags=categories
         )
 
@@ -255,13 +259,13 @@ class RNNTrainer:
 
         return model
 
-    def __update_best_args(self, acc: float, hparams: dict) -> None:
+    def __update_best_args(self, acc: float, res: dict) -> None:
         """updates the best arguments found when a new model is better than the previous one.
 
         Args:
             new_accuracy (float): new accuracy found
             new_time (float): new execution time found
-            hparams (dict): new hyperparameters found
+            res (dict): results
         """
         if acc > self.__best_acc:
             self.__best_acc = acc
@@ -309,6 +313,22 @@ class RNNTrainer:
         plot_confusion_matrix(y_true, y_pred, tags, plot_filename)
         plt.close()
         return plot_filename
+
+    def get_best_acc(self) -> float:
+        """Get the best accuracy.
+
+        Returns:
+            float: Best accuracy
+        """
+        return self.__best_acc
+
+    def get_confusion_matrix(self) -> str:
+        """Get the confusion matrix.
+
+        Returns:
+            str: Path to the confusion matrix image
+        """
+        return self.__cm_file_path
 
     def stats(self) -> str:
         """Get the stats of the model.

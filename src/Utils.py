@@ -10,7 +10,7 @@ customDPI = 300
 plot_folder = './plots/'
 
 
-def plot_confusion_matrix(y: np.ndarray, p: np.ndarray, tags: list[str], filename: str) -> None:
+def plot_confusion_matrix(y: np.ndarray, p: np.ndarray, tags: list[str], filename: str, title: str = "") -> None:
     """Plots the confusion matrix for a given prediction using the provided tags as tick labels.
 
     Args:
@@ -20,6 +20,7 @@ def plot_confusion_matrix(y: np.ndarray, p: np.ndarray, tags: list[str], filenam
         filename (str): File to store the plot.
     """
     fig, ax = plt.subplots()
+    plt.title(title)
     ax.set_title("Confusion Matrix")
     ax.set_xlabel("Predicted")
     ax.set_ylabel("True")

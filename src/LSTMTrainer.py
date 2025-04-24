@@ -53,7 +53,7 @@ class LSTMTrainer:
             tf.keras.layers.Dense(output_shape, activation="softmax")
         ])
 
-    def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
+    def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, X_test: np.ndarray = None, y_test: np.ndarray = None,
                            epochs: int = 10, batch_size: int = 1, num_cats: int = 6, categories: list[str] = None) -> None:
         """Train the model with all the combinations of Hparams.
 
@@ -99,7 +99,7 @@ class LSTMTrainer:
         best_hp = tuner.get_best_hyperparameters(1)[0]
 
         self.__model = best_model
-        self.__update_best_args(best_model.evaluate(X_val, y_val)[
+        self.__update_best_args(best_model.evaluate(X_test, y_test)[
                                 1], best_hp.values)
         self.save_model()
 

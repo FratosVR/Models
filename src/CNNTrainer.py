@@ -40,7 +40,7 @@ class CNNTrainer:
         self.__tuner = None
 
     def __model_generator(self, n_features: int, n_classes: int) -> None:
-        """LEGACY 
+        """LEGACY
 
         Generates a model with the given input and output shape.
 
@@ -101,7 +101,7 @@ class CNNTrainer:
             max_epochs=epochs,
             factor=3,
             directory=tuner_logdir,
-            project_name=f"tune_lstm_{self.__interval}",
+            project_name=f"tune_cnn_{self.__interval}",
             overwrite=True
         )
         self.__tuner = tuner
@@ -176,10 +176,13 @@ class CNNTrainer:
         self.__update_best_args(acc)
         self.save_model()
 
-        self.confusion_matrix(
+        y_pred = [self.__model.predict(x)
+                  for x in np.concatenate((X, X_val), axis=1)]
+
+        self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
-            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            y_pred=y_pred,
             tags=categories
         )
 
@@ -251,9 +254,6 @@ class CNNTrainer:
         self.__model.save(f"../models/best-cnn{self.__interval}.keras")
         self.__best_model_path = f"../models/best-cnn{self.__interval}.keras"
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        return self.__model.predict(X)
-
     def best_model(self) -> str:
         """Get the best model path.
 
@@ -282,6 +282,22 @@ class CNNTrainer:
         plot_confusion_matrix(y_true, y_pred, tags, plot_filename)
         plt.close()
         return plot_filename
+
+    def get_best_acc(self) -> float:
+        """Get the best accuracy.
+
+        Returns:
+            float: Best accuracy
+        """
+        return self.__best_acc
+
+    def get_confusion_matrix(self) -> str:
+        """Get the confusion matrix.
+
+        Returns:
+            str: Path to the confusion matrix image
+        """
+        return self.__cm_file_path
 
     def stats(self) -> str:
         """Get the stats of the model.
