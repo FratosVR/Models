@@ -113,7 +113,7 @@ with gr.Blocks(theme="ParityError/Interstellar") as blocks:
 
             with gr.Column():
                 trained_model = gr.File(label="Trained model")
-                conf_mat = gr.Image(label="Confusion matrix")
+                conf_mat = gr.Image(label="Confusion matrix", type="filepath")
                 stats = gr.Textbox(label="Training statistics")
 
                 all_interval_button.click(
@@ -130,4 +130,4 @@ with gr.Blocks(theme="ParityError/Interstellar") as blocks:
         log_buttom.click(refresh_tensorboard,
                          inputs=[log_path], outputs=[iframe])
 
-blocks.launch()
+blocks.launch(share=True)

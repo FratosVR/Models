@@ -74,7 +74,7 @@ class CNNTrainer:
         self.__model = Model(inputs=inp, outputs=out)
 
     def train_with_hparams(self, X: np.ndarray, y: np.ndarray,
-                           X_val: np.ndarray = None, y_val: np.ndarray = None,
+                           X_val: np.ndarray = None, y_val: np.ndarray = None, X_test: np.ndarray = None, y_test: np.ndarray = None,
                            epochs: int = 10, batch_size: int = 1,
                            num_cats: int = 6, categories: list[str] = None) -> None:
         """Train the model with all the combinations of Hparams.
@@ -121,14 +121,15 @@ class CNNTrainer:
         best_hp = tuner.get_best_hyperparameters(1)[0]
 
         self.__model = best_model
-        self.__update_best_args(best_model.evaluate(X_val, y_val)[
+        self.__update_best_args(best_model.evaluate(X_test, y_test)[
                                 1], best_hp.values)
         self.save_model()
 
-        self.confusion_matrix(
+        self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
-            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            y_pred=np.concatenate(
+                (self.predict(X), self.predict(X_val), self.predict(X_test))),
             tags=categories
         )
 
@@ -277,9 +278,10 @@ class CNNTrainer:
         self.__model = tf.keras.models.load_model(filename)
         y_pred = np.argmax(y_pred, axis=1)
         y_true = np.argmax(y_true, axis=1)
-        plot_filename = "./LSTMlog/CM_" + \
+        plot_filename = "./CNNlog/CM_" + \
             filename.split("/")[-1].replace(".keras", ".png")
-        plot_confusion_matrix(y_true, y_pred, tags, plot_filename)
+        plot_confusion_matrix(y_true, y_pred, tags, plot_filename,
+                              title=f"Matriz de confusión (CNN, intervalo {self.__interval}s)")
         plt.close()
         return plot_filename
 

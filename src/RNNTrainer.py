@@ -110,15 +110,16 @@ class RNNTrainer:
         best_hp = tuner.get_best_hyperparameters(1)[0]
 
         self.__model = best_model
-        self.__update_best_args(best_model.evaluate(X_test, X_test)[
+        self.__update_best_args(best_model.evaluate(X_test, y_test)[
                                 1], best_hp.values)
 
         self.save_model()
 
-        self.confusion_matrix(
+        sefl.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
-            y_pred=np.concatenate((self.predict(X), self.predict(X_val))),
+            y_pred=np.concatenate(
+                (self.predict(X), self.predict(X_val), self.predict(X_test))),
             tags=categories
         )
 
@@ -270,8 +271,8 @@ class RNNTrainer:
         if acc > self.__best_acc:
             self.__best_acc = acc
             print(f"New best accuracy: {acc:.4f}")
-            if hparams:
-                print(f"Best hyperparameters: {hparams}")
+            if res:
+                print(f"Best hyperparameters: {res}")
 
     def save_model(self) -> None:
         """"Saves the best model found.
@@ -310,7 +311,8 @@ class RNNTrainer:
         y_true = np.argmax(y_true, axis=1)
         plot_filename = "./RNNlog/CM_" + \
             filename.split("/")[-1].replace(".keras", ".png")
-        plot_confusion_matrix(y_true, y_pred, tags, plot_filename)
+        plot_confusion_matrix(y_true, y_pred, tags, plot_filename,
+                              title=f"Matriz de confusión (RNN, intervalo {self.__interval}s)")
         plt.close()
         return plot_filename
 
