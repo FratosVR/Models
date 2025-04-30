@@ -1,4 +1,4 @@
-from kaggle.api.kaggle_api_extended import KaggleApi
+# from kaggle.api.kaggle_api_extended import KaggleApi
 import pandas as pd
 import os
 import numpy as np
@@ -13,13 +13,13 @@ def flatten(xss):
 
 class DataLoader:
     def __init__(self, dataset_path, interval: float = 1.0):
-        self.__api = KaggleApi()
-        self.__api.authenticate()
+        # self.__api = KaggleApi()
+        # self.__api.authenticate()
         self.__dataset_path = dataset_path
         self.__interal = interval
-        if not os.path.exists(self.__dataset_path):
-            self.__api.dataset_download_cli(
-                "alk222/csv-pose-animations", path=self.__dataset_path, unzip=True)
+        # if not os.path.exists(self.__dataset_path):
+        #     self.__api.dataset_download_cli(
+        #         "alk222/csv-pose-animations", path=self.__dataset_path, unzip=True)
 
     def __dataset_cleaner_aux(self, data: list[tuple[str, str, np.ndarray]], max_length: int) -> list[tuple[str, str, np.ndarray]]:
         """Aux function to clean the dataset. It will split elements with more than max_length frames and extend the ones that are smaller than max_length frames.

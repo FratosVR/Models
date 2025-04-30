@@ -130,4 +130,4 @@ with gr.Blocks(theme="ParityError/Interstellar") as blocks:
         log_buttom.click(refresh_tensorboard,
                          inputs=[log_path], outputs=[iframe])
 
-blocks.launch(share=True)
+blocks.launch()

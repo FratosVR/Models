@@ -115,7 +115,7 @@ class RNNTrainer:
 
         self.save_model()
 
-        sefl.__cm_file_path = self.confusion_matrix(
+        self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
             y_pred=np.concatenate(

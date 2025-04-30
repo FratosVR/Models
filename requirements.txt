@@ -1,3 +1,10 @@
-tensorflow
-ydf
-gradio
+gradio==5.26.0
+kaggle==1.7.4.2
+matplotlib==3.10.1
+numpy==2.2.5
+pandas==2.2.3
+scikit_learn==1.6.1
+tensorboard==2.19.0
+tensorflow==2.19.0
+tqdm==4.67.1
+ydf==0.11.0
