@@ -21,7 +21,7 @@ class RandomForestTrainer:
     def __init__(self, interval: str, log_dir: str = "./RFlog") -> None:
         self.__interval = interval
         self.__model = None
-        self.__best_model_path = f"./models/best_rf_{interval}.keras"
+        self.__best_model_path = f"./models/best_rf_{interval}"
         self.__cm_file_path = None
         self.__log_dir = log_dir
         self.__best_accuracy = 0.0
@@ -179,7 +179,7 @@ class RandomForestTrainer:
         y_pred = np.argmax(y_pred, axis=1)
         y_true = np.argmax(y_true, axis=1)
         plot_filename = "./RFlog/CM_" + \
-            filename.split("/")[-1].replace(".keras", ".png")
+            filename.split("/")[-1] + ".png"
         Utils.plot_confusion_matrix(y_true, y_pred, tags, plot_filename,
                                     title=f"Matriz de confusión (Random Forest, intervalo {self.__interval}s)")
         plt.close()

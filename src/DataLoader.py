@@ -110,6 +110,31 @@ class DataLoader:
             np.savetxt(os.path.join("./dataset/splitted-animations",
                        filename + ".csv"), row, delimiter=",")
 
+    def load_dataset_as_dataframe(self):
+        data = []
+        files = glob.glob(os.path.join(
+            self.__dataset_path, "*.csv"))
+        for file in tqdm(files):
+            data_aux = pd.read_csv(file, delimiter=",", dtype=np.float32)
+            data_aux = data_aux.to_numpy()[0:90:(round(self.__interal*90)), :]
+            data_aux = data_aux.reshape(data_aux.shape[0], -1)
+            category = file.split("/")[-1].split("_")[0]
+            data_aux = np.append(data_aux, category)
+            for row in data_aux:
+                data.append(data_aux)
+
+        header_size = data[0].shape[0]
+        steps = len(range(0, 90, round(self.__interal*90)))
+        header = pd.read_csv(
+            files[0], delimiter=",", dtype=np.float32).columns.tolist()
+        print(f"{header_size}, {steps}")
+        header_final = header
+        header_final = [f"{h}_{i}" for h in header for i in range(steps)]
+        header_final = header_final + ["label"]
+        print(len(header_final))
+        data = pd.DataFrame(data, columns=header_final)
+        return data
+
     def load_dataset(self):
         data = []
         files = glob.glob(os.path.join(
