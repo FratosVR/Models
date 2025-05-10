@@ -1,4 +1,0 @@
-Best model: ../models/best-lstm0.9.keras
-Best score: 0.2029131054878235
-Best args: {HParam(name='activation', domain=Discrete(['linear', 'relu', 'sigmoid', 'tanh']), display_name=None, description=None): 'linear', HParam(name='dropout', domain=RealInterval(0.0, 1.0), display_name=None, description=None): 0.0, HParam(name='recurrent_dropout', domain=RealInterval(0.0, 1.0), display_name=None, description=None): 0.0, HParam(name='recurrent_activation', domain=Discrete(['linear', 'relu', 'sigmoid', 'tanh']), display_name=None, description=None): 'linear', HParam(name='unroll', domain=Discrete([False, True]), display_name=None, description=None): False, HParam(name='use_bias', domain=Discrete([False, True]), display_name=None, description=None): False}
-Execution time: 0.664379358291626
