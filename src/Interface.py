@@ -1,6 +1,6 @@
 import gradio as gr
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OneHotEncoder
 import tensorflow as tf
 from tensorboard import program
 import numpy as np
@@ -97,22 +97,21 @@ class Interface:
 
             X_val = np.array(X_val, dtype=np.float32)
 
-            label_encoder = LabelEncoder()
-            Y_train_encoded = label_encoder.fit_transform(Y_train)
-            Y_test_encoded = label_encoder.transform(Y_test)
-            Y_val_encoded = label_encoder.transform(Y_val)
+            label_encoder = OneHotEncoder()
+            Y_train_encoded = label_encoder.fit_transform(
+                np.array(Y_train).reshape(-1, 1)).toarray()
+            Y_test_encoded = label_encoder.transform(
+                np.array(Y_test).reshape(-1, 1)).toarray()
+            Y_val_encoded = label_encoder.transform(
+                np.array(Y_val).reshape(-1, 1)).toarray()
 
-            # One-hot encode Y labels
-            num_classes = len(label_encoder.classes_)
-            Y_train = tf.keras.utils.to_categorical(
-                Y_train_encoded, num_classes=num_classes)
-            Y_test = tf.keras.utils.to_categorical(
-                Y_test_encoded, num_classes=num_classes)
-            Y_val = tf.keras.utils.to_categorical(
-                Y_val_encoded, num_classes=num_classes)
+            Y_train = np.array(Y_train_encoded, dtype=np.float32)
+            Y_test = np.array(Y_test_encoded, dtype=np.float32)
+            Y_val = np.array(Y_val_encoded, dtype=np.float32)
 
+            categories = label_encoder.categories_[0]
             trainer.train_with_hparams(
-                X_train, Y_train, X_val, Y_val, X_test, Y_test, epochs=20, batch_size=1, num_cats=num_classes, categories=label_encoder.classes_)
+                X_train, Y_train, X_val, Y_val, X_test, Y_test, epochs=20, batch_size=1, num_cats=len(categories), categories=categories)
             trainer.save_model()
             acc = trainer.get_best_acc()
             if acc > best_acc:
