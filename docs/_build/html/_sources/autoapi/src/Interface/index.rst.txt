@@ -1,0 +1,113 @@
+src.Interface
+=============
+
+.. py:module:: src.Interface
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   src.Interface.interface
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.Interface.Interface
+
+
+Module Contents
+---------------
+
+
+
+
+.. py:class:: Interface
+
+
+
+Interface for training models with Gradio and TensorBoard integration.
+
+
+.. py:attribute:: log_path
+      :type:  str
+      :value: None
+
+
+      List of available models for training 
+
+
+.. py:attribute:: __models
+      :type:  list[str]
+      :value: ['LSTM', 'RNN', 'CNN', 'RandomForest']
+
+
+      Mapping of model names to their respective trainer classes 
+
+
+.. py:attribute:: __models_map
+      :type:  dict[str, LSTMTrainer.LSTMTrainer | RNNTrainer.RNNTrainer | CNNTrainer.CNNTrainer | RandomForestTrainer.RandomForestTrainer]
+
+      Interval for training in seconds 
+
+
+.. py:attribute:: __sec_interval
+      :value: [0.5]
+
+
+      Gradio Blocks for the user interface 
+
+
+.. py:attribute:: __blocks
+
+      Initialize the user interface 
+
+
+.. py:method:: __setup_ui()
+
+      Sets up the user interface components using Gradio Blocks.
+
+
+.. py:method:: __change_interval_all()
+
+      Changes the interval for all models to a predefined set of values.
+
+
+.. py:method:: __change_interval(value)
+
+      Changes the interval for the selected model to a single value.
+      :param value: The new interval value to set.
+
+
+.. py:method:: __train(model, path)
+
+      Trains the selected model with the specified dataset path and interval.
+      :param model: The model to train.
+      :param path: The path to the dataset.
+      :return: The best trained model, confusion matrix, and training statistics.
+
+
+.. py:method:: __refresh_tensorboard(log_path: str) -> gradio.update
+
+      Refreshes the TensorBoard interface with the specified log path.
+
+      Args:
+          log_path (str): The path to the TensorBoard logs.
+
+      Returns:
+          gr.update(): An update to the Gradio interface to reflect the new TensorBoard state.
+
+
+.. py:method:: launch()
+
+      Launches the Gradio interface and starts the TensorBoard server.
+
+
+
+
+.. py:data:: interface
+

@@ -8,31 +8,48 @@ import glob
 
 
 def flatten(xss):
+    """Flatten a nested list structure.
+
+    :param xss: Nested list to flatten
+    :type xss: list[list[Any]]
+    :return: Flattened list
+    :rtype: list[Any]
+    """
     return [x for xs in xss for x in xs]
 
 
 class DataLoader:
-    def __init__(self, dataset_path, interval: float = 1.0):
+    """Dataset loader and preprocessor for pose animation data."""
+
+    def __init__(self, dataset_path: str, interval: float = 1.0) -> None:
+        """Initialize the DataLoader instance.
+
+        :param dataset_path: Path to the dataset directory
+        :type dataset_path: str
+        :param interval: Data sampling interval in seconds, defaults to 1.0
+        :type interval: float, optional
+        """
         # self.__api = KaggleApi()
         # self.__api.authenticate()
-        self.__dataset_path = dataset_path
-        self.__interal = interval
-        # if not os.path.exists(self.__dataset_path):
-        #     self.__api.dataset_download_cli(
-        #         "alk222/csv-pose-animations", path=self.__dataset_path, unzip=True)
+        #: Path to the dataset directory
+        self.__dataset_path: str = dataset_path
+        #: Data sampling interval in seconds
+        self.__interval: float = interval
 
     def __dataset_cleaner_aux(self, data: list[tuple[str, str, np.ndarray]], max_length: int) -> list[tuple[str, str, np.ndarray]]:
-        """Aux function to clean the dataset. It will split elements with more than max_length frames and extend the ones that are smaller than max_length frames.
-        It will also remove elements with less than 10 frames. New elements will be created with the same label and a new filename. The new filename will be the original filename + "-1", "-2", etc.
+        """Clean and standardize animation data to uniform length.
 
-        Args:
-            data (list[tuple[str, str, np.ndarray]]): original data
-            max_length (int): max number of frames
+        Splits elements exceeding max_length and extends shorter sequences.
+        Removes elements with fewer than 10 frames. Generates new filenames
+        for split sequences with "-1", "-2" suffixes.
 
-        Returns:
-            list[tuple[str, str, np.ndarray]]: list of standarized animations
+        :param data: Original dataset as list of (label, filename, array) tuples
+        :type data: list[tuple[str, str, np.ndarray]]
+        :param max_length: Target number of frames per sequence
+        :type max_length: int
+        :return: Standardized animation sequences
+        :rtype: list[tuple[str, str, np.ndarray]]
         """
-
         new_elems = []
         usable_data = []
         # Iterate over all elements
@@ -79,7 +96,10 @@ class DataLoader:
         return usable_data
 
     def dataset_cleaner(self) -> None:
-        """Function to clean the dataset and save it to a new folder
+        """Clean and standardize the animation dataset.
+        
+        Processes all CSV files in the dataset directory, ensuring uniform sequence length.
+        Saves cleaned data to './dataset/splitted-animations' directory.
         """
         list_data: list[tuple[str, str, np.ndarray]] = []
 
@@ -110,13 +130,18 @@ class DataLoader:
             np.savetxt(os.path.join("./dataset/splitted-animations",
                        filename + ".csv"), row, delimiter=",")
 
-    def load_dataset_as_dataframe(self):
+    def load_dataset_as_dataframe(self) -> pd.DataFrame:
+        """Load and preprocess dataset into a pandas DataFrame.
+
+        :return: DataFrame containing standardized animation sequences with labels
+        :rtype: pd.DataFrame
+        """
         data = []
         files = glob.glob(os.path.join(
             self.__dataset_path, "*.csv"))
         for file in tqdm(files):
             data_aux = pd.read_csv(file, delimiter=",", dtype=np.float32)
-            data_aux = data_aux.to_numpy()[0:90:(round(self.__interal*90)), :]
+            data_aux = data_aux.to_numpy()[0:90:(round(self.__interval*90)), :]
             data_aux = data_aux.reshape(data_aux.shape[0], -1)
             category = file.split("/")[-1].split("_")[0]
             data_aux = np.append(data_aux, category)
@@ -124,7 +149,7 @@ class DataLoader:
                 data.append(data_aux)
 
         header_size = data[0].shape[0]
-        steps = len(range(0, 90, round(self.__interal*90)))
+        steps = len(range(0, 90, round(self.__interval*90)))
         header = pd.read_csv(
             files[0], delimiter=",", dtype=np.float32).columns.tolist()
         print(f"{header_size}, {steps}")
@@ -135,7 +160,12 @@ class DataLoader:
         data = pd.DataFrame(data, columns=header_final)
         return data
 
-    def load_dataset(self):
+    def load_dataset(self) -> list[tuple[str, np.ndarray]]:
+        """Load raw dataset as list of (label, array) tuples.
+
+        :return: List of animation sequences with their category labels
+        :rtype: list[tuple[str, np.ndarray]]
+        """
         data = []
         files = glob.glob(os.path.join(
             self.__dataset_path, "*.csv"))
@@ -143,13 +173,7 @@ class DataLoader:
         print("Loading dataset")
         for file in tqdm(files):
             data_aux = pd.read_csv(file, delimiter=",", dtype=np.float32)
-            data_aux = data_aux.to_numpy()[0:90:(round(self.__interal*90)), :]
+            data_aux = data_aux.to_numpy()[0:90:(round(self.__interval*90)), :]
             category = file.split("/")[-1].split("_")[0]
             data.append((category, data_aux))
         return data
-
-
-if __name__ == "__main__":
-    dl = DataLoader("./dataset/splitted-animations", 1.0)
-    df = dl.load_dataset()
-    print(df)

@@ -1,0 +1,76 @@
+src.notebooks.DataLoader
+========================
+
+.. py:module:: src.notebooks.DataLoader
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   src.notebooks.DataLoader.dl
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.notebooks.DataLoader.DataLoader
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   src.notebooks.DataLoader.flatten
+
+
+Module Contents
+---------------
+
+.. py:function:: flatten(xss)
+
+
+
+
+.. py:class:: DataLoader(dataset_path, interval: float = 1.0)
+
+
+
+
+.. py:attribute:: __dataset_path
+
+.. py:attribute:: __interal
+      :value: 1.0
+
+
+.. py:method:: __dataset_cleaner_aux(data: list[tuple[str, str, numpy.ndarray]], max_length: int) -> list[tuple[str, str, numpy.ndarray]]
+
+      Aux function to clean the dataset. It will split elements with more than max_length frames and extend the ones that are smaller than max_length frames.
+      It will also remove elements with less than 10 frames. New elements will be created with the same label and a new filename. The new filename will be the original filename + "-1", "-2", etc.
+
+      Args:
+          data (list[tuple[str, str, np.ndarray]]): original data
+          max_length (int): max number of frames
+
+      Returns:
+          list[tuple[str, str, np.ndarray]]: list of standarized animations
+
+
+.. py:method:: dataset_cleaner() -> None
+
+      Function to clean the dataset and save it to a new folder
+              
+
+
+.. py:method:: load_dataset_as_dataframe()
+
+.. py:method:: load_dataset()
+
+
+
+.. py:data:: dl
+

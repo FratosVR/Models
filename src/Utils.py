@@ -1,23 +1,36 @@
 import matplotlib.pyplot as plt
-
 import numpy as np
 
-# Custom DPI for the different plots, 300 is very high quality but makes PDF files not able to be submitted to the course assignment system, for that case use 100
+#: DPI setting for plot output (300 for high quality, 100 for course submissions)
 customDPI = 300
 
-# Folder where to save the plots
-
+#: Directory path for saving output plots
 plot_folder = './plots/'
 
 
-def plot_confusion_matrix(y: np.ndarray, p: np.ndarray, tags: list[str], filename: str, title: str = "") -> None:
-    """Plots the confusion matrix for a given prediction using the provided tags as tick labels.
+def plot_confusion_matrix(y: np.ndarray, p: np.ndarray, tags: list[str], 
+                         filename: str, title: str = "") -> None:
+    """Generate and save a confusion matrix visualization.
 
-    Args:
-        y (np.ndarray): Expected values (class indices).
-        p (np.ndarray): Predicted values (class indices).
-        tags (list[str]): List of tag names corresponding to the classes.
-        filename (str): File to store the plot.
+    Creates a heatmap-style confusion matrix with class labels, grid lines,
+    and value annotations in each cell. Saves the plot to specified file.
+
+    :param y: Ground truth class indices (0-based or 1-based)
+    :type y: np.ndarray
+    :param p: Predicted class indices (same indexing as y)
+    :type p: np.ndarray
+    :param tags: Class names corresponding to indices
+    :type tags: list[str]
+    :param filename: Output file path for saving the plot
+    :type filename: str
+    :param title: Optional title for the plot, defaults to ""
+    :type title: str, optional
+
+    Note:
+        - Handles both 0-based and 1-based class indexing automatically
+        - Uses red color gradient (Reds colormap) for the heatmap
+        - Includes grid lines between cells for better readability
+        - Text annotations are white/black for optimal contrast
     """
     fig, ax = plt.subplots()
     plt.title(title)
@@ -42,16 +55,17 @@ def plot_confusion_matrix(y: np.ndarray, p: np.ndarray, tags: list[str], filenam
     cax = ax.matshow(cm, cmap='Reds')
     fig.colorbar(cax)
 
-    # Optionally add minor ticks for grid lines
+    # Add minor ticks for grid lines
     ax.set_xticks(np.arange(-.5, num_tags, 1), minor=True)
     ax.set_yticks(np.arange(-.5, num_tags, 1), minor=True)
     plt.grid(which='minor', color='lightgrey', linestyle='-', linewidth=0.5)
 
-    # Write text annotations in each cell of the confusion matrix
+    # Add text annotations in each cell
     for (i, j), z in np.ndenumerate(cm):
         text_color = 'white' if z > cm.max() / 2 else 'black'
         ax.text(j, i, f'{z:.1f}', ha='center',
                 va='center', fontsize=8, color=text_color)
 
-    # Save the figure (ensure that plot_folder and customDPI are defined)
-    plt.savefig(filename, dpi=customDPI)
+    # Save figure with specified DPI
+    plt.savefig(filename, dpi=customDPI, bbox_inches='tight')
+    plt.close()

@@ -1,0 +1,95 @@
+src.DataLoader
+==============
+
+.. py:module:: src.DataLoader
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.DataLoader.DataLoader
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   src.DataLoader.flatten
+
+
+Module Contents
+---------------
+
+.. py:function:: flatten(xss)
+
+   Flatten a nested list structure.
+
+   :param xss: Nested list to flatten
+   :type xss: list[list[Any]]
+   :return: Flattened list
+   :rtype: list[Any]
+
+
+
+
+
+.. py:class:: DataLoader(dataset_path: str, interval: float = 1.0)
+
+
+
+Dataset loader and preprocessor for pose animation data.
+
+
+.. py:attribute:: __dataset_path
+      :type:  str
+
+.. py:attribute:: __interval
+      :type:  float
+      :value: 1.0
+
+
+.. py:method:: __dataset_cleaner_aux(data: list[tuple[str, str, numpy.ndarray]], max_length: int) -> list[tuple[str, str, numpy.ndarray]]
+
+      Clean and standardize animation data to uniform length.
+
+      Splits elements exceeding max_length and extends shorter sequences.
+      Removes elements with fewer than 10 frames. Generates new filenames
+      for split sequences with "-1", "-2" suffixes.
+
+      :param data: Original dataset as list of (label, filename, array) tuples
+      :type data: list[tuple[str, str, np.ndarray]]
+      :param max_length: Target number of frames per sequence
+      :type max_length: int
+      :return: Standardized animation sequences
+      :rtype: list[tuple[str, str, np.ndarray]]
+
+
+.. py:method:: dataset_cleaner() -> None
+
+      Clean and standardize the animation dataset.
+
+      Processes all CSV files in the dataset directory, ensuring uniform sequence length.
+      Saves cleaned data to './dataset/splitted-animations' directory.
+
+
+.. py:method:: load_dataset_as_dataframe() -> pandas.DataFrame
+
+      Load and preprocess dataset into a pandas DataFrame.
+
+      :return: DataFrame containing standardized animation sequences with labels
+      :rtype: pd.DataFrame
+
+
+.. py:method:: load_dataset() -> list[tuple[str, numpy.ndarray]]
+
+      Load raw dataset as list of (label, array) tuples.
+
+      :return: List of animation sequences with their category labels
+      :rtype: list[tuple[str, np.ndarray]]
+
+
+
+

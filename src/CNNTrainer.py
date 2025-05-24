@@ -20,33 +20,48 @@ import matplotlib.pyplot as plt
 
 
 class CNNTrainer:
-    """CNN Model training manager with hyperparameter tuning using hparams, accepts variable-length input."""
+    """CNN Model training manager with hyperparameter tuning using hparams and keras tuner.
+    
+    Handles variable-length input sequences for animation classification.
+    """
 
-    def __init__(self, interval: float, tensorboard_log_dir: str = "./logs/hparams_CNN"):
-        """Constructor for CNNTrainer.
-        Initializes hyperparameters, HParams and TensorBoard log directory.
+    def __init__(self, interval: float, tensorboard_log_dir: str = "./logs/hparams_CNN") -> None:
+        """Initialize the CNNTrainer instance.
 
-        Args:
-            interval (float): Interval of which data is transmited to the model.
-            tensorboard_log_dir (str, optional): Directory for TensorBoard logs.
+        :param interval: Data sampling interval in seconds
+        :type interval: float
+        :param tensorboard_log_dir: Directory for TensorBoard logs, defaults to "./logs/hparams_CNN"
+        :type tensorboard_log_dir: str, optional
         """
-        self.__interval = interval
-        self.__model = None
-        self.__best_model_path = f"best_cnn_{interval}.keras"
-        self.__tensorboard_log_dir = tensorboard_log_dir
-        self.__tensorboard_callbacks = [TensorBoard(
-            log_dir=os.path.join(tensorboard_log_dir, interval))]
-        self.__best_acc = 0.0
-        self.__tuner = None
+        self.__interval: float = interval  #: Data sampling interval
+        self.__model: Model = None  #: Keras model instance
+        #: Path to best saved model
+        self.__best_model_path: str = f"best_cnn_{interval}.keras"
+        #: Directory for TensorBoard logs
+        self.__tensorboard_log_dir: str = tensorboard_log_dir
+        #: List of TensorBoard callback instances
+        self.__tensorboard_callbacks: list[TensorBoard] = [
+            TensorBoard(log_dir=os.path.join(tensorboard_log_dir, str(interval)))
+        ]
+        self.__best_acc: float = 0.0  #: Best achieved accuracy
+        self.__tuner: Hyperband = None  #: Keras tuner instance
+        self.__input_shape: tuple = None  #: Input shape of the model
+        self.__num_cats: int = None  #: Number of output categories
+        #: Hyperparameters
+        self.__conv_filters: int = None
+        self.__kernel_size: int = None
+        self.__activation: str = None
+        self.__pool_size: int = None
+        self.__dense_units: int = None
+        self.__dropout_rate: float = None
 
     def __model_generator(self, n_features: int, n_classes: int) -> None:
-        """LEGACY
+        """LEGACY - Generate a CNN model with given specifications.
 
-        Generates a model with the given input and output shape.
-
-        Args:
-            input_shape (tuple[int, int]): input shape
-            output_shape (int): output shape
+        :param n_features: Number of input features per timestep
+        :type n_features: int
+        :param n_classes: Number of output classes
+        :type n_classes: int
         """
         inp = Input(shape=(None, n_features), name="animation_frames")
         x = Conv1D(filters=self.__conv_filters,
@@ -74,20 +89,32 @@ class CNNTrainer:
         self.__model = Model(inputs=inp, outputs=out)
 
     def train_with_hparams(self, X: np.ndarray, y: np.ndarray,
-                           X_val: np.ndarray = None, y_val: np.ndarray = None, X_test: np.ndarray = None, y_test: np.ndarray = None,
+                           X_val: np.ndarray = None, y_val: np.ndarray = None, 
+                           X_test: np.ndarray = None, y_test: np.ndarray = None,
                            epochs: int = 10, batch_size: int = 1,
                            num_cats: int = 6, categories: list[str] = None) -> None:
-        """Train the model with all the combinations of Hparams.
+        """Train model with hyperparameter tuning using Keras Tuner.
 
-        Args:
-            X (np.ndarray): Input data
-            y (np.ndarray): Input categories
-            X_val (np.ndarray, optional): Validation input data. Defaults to None.
-            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
-            epochs (int, optional): Number of epochs. Defaults to 10.
-            batch_size (int, optional): Batch size. Defaults to 1.
-            num_cats (int, optional): Number of categories. Defaults to 6.
-            categories (list[str], optional): List of categories. Defaults to None.
+        :param X: Training input data
+        :type X: np.ndarray
+        :param y: Training target data
+        :type y: np.ndarray
+        :param X_val: Validation input data, defaults to None
+        :type X_val: np.ndarray, optional
+        :param y_val: Validation target data, defaults to None
+        :type y_val: np.ndarray, optional
+        :param X_test: Test input data, defaults to None
+        :type X_test: np.ndarray, optional
+        :param y_test: Test target data, defaults to None
+        :type y_test: np.ndarray, optional
+        :param epochs: Number of training epochs, defaults to 10
+        :type epochs: int, optional
+        :param batch_size: Batch size, defaults to 1
+        :type batch_size: int, optional
+        :param num_cats: Number of output categories, defaults to 6
+        :type num_cats: int, optional
+        :param categories: List of category names, defaults to None
+        :type categories: list[str], optional
         """
         self.__input_shape = X.shape[1:]
         self.__num_cats = num_cats
@@ -121,15 +148,13 @@ class CNNTrainer:
         best_hp = tuner.get_best_hyperparameters(1)[0]
 
         self.__model = best_model
-        self.__update_best_args(best_model.evaluate(X_test, y_test)[
-                                1], best_hp.values)
+        self.__update_best_args(best_model.evaluate(X_test, y_test)[1], best_hp.values)
         self.save_model()
 
         self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
-            y_pred=np.concatenate(
-                (self.predict(X), self.predict(X_val), self.predict(X_test))),
+            y_pred=np.concatenate((self.predict(X), self.predict(X_val), self.predict(X_test))),
             tags=categories
         )
 
@@ -137,20 +162,24 @@ class CNNTrainer:
               X_val: np.ndarray = None, y_val: np.ndarray = None,
               epochs: int = 10, batch_size: int = 1,
               log_dir: str = None, hparams: dict = None) -> None:
-        """Train the model with the given parameters.
+        """Train model with fixed hyperparameters.
 
-        Args:
-            X (np.ndarray): Input data
-            y (np.ndarray): Input categories
-            X_val (np.ndarray, optional): Validation input data. Defaults to None.
-            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
-            epochs (int, optional): Number of epochs. Defaults to 10.
-            batch_size (int, optional): Batch size. Defaults to 1.
-            log_dir (str, optional): Log directory. Defaults to None.
-            hparams (dict, optional): Hyperparameters. Defaults to None.
-
-        Returns:
-            list[float]: Accuracy and execution time
+        :param X: Training input data
+        :type X: np.ndarray
+        :param y: Training target data
+        :type y: np.ndarray
+        :param X_val: Validation input data, defaults to None
+        :type X_val: np.ndarray, optional
+        :param y_val: Validation target data, defaults to None
+        :type y_val: np.ndarray, optional
+        :param epochs: Number of training epochs, defaults to 10
+        :type epochs: int, optional
+        :param batch_size: Batch size, defaults to 1
+        :type batch_size: int, optional
+        :param log_dir: Directory for training logs, defaults to None
+        :type log_dir: str, optional
+        :param hparams: Hyperparameters dictionary, defaults to None
+        :type hparams: dict, optional
         """
         input_shape = X.shape[1:]
 
@@ -177,8 +206,7 @@ class CNNTrainer:
         self.__update_best_args(acc)
         self.save_model()
 
-        y_pred = [self.__model.predict(x)
-                  for x in np.concatenate((X, X_val), axis=1)]
+        y_pred = [self.__model.predict(x) for x in np.concatenate((X, X_val), axis=1)]
 
         self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
@@ -188,11 +216,12 @@ class CNNTrainer:
         )
 
     def __build_model(self, hp: HyperParameters) -> tf.keras.Model:
-        """Build the model with the given hyperparameters.
-        Args:
-            hp (HyperParameters): Hyperparameters (automatically created by keras tuner)
-        Returns:
-            tf.keras.Model: Model
+        """Build model architecture with tunable hyperparameters.
+
+        :param hp: Hyperparameters configuration
+        :type hp: HyperParameters
+        :return: Compiled Keras model
+        :rtype: tf.keras.Model
         """
         self.__conv_filters = hp.Int("conv_filters", 16, 64, step=16)
         self.__kernel_size = hp.Int("kernel_size", 2, 5, step=1)
@@ -225,17 +254,17 @@ class CNNTrainer:
         model.add(Dense(self.__num_cats, activation='softmax'))
 
         model.compile(optimizer='adam',
-                      loss='categorical_crossentropy',
-                      metrics=['accuracy'])
+                     loss='categorical_crossentropy',
+                     metrics=['accuracy'])
         return model
 
     def __update_best_args(self, acc: float, hparams: dict = None) -> None:
-        """Update the best arguments with the new accuracy and time.
+        """Update tracking of best model metrics.
 
-        Args:
-            new_accuracy (float): New accuracy
-            new_time (float): New time
-            hparams (dict): Hyperparameters
+        :param acc: New accuracy value
+        :type acc: float
+        :param hparams: Hyperparameters dictionary, defaults to None
+        :type hparams: dict, optional
         """
         if acc > self.__best_acc:
             self.__best_acc = acc
@@ -244,10 +273,9 @@ class CNNTrainer:
                 print(f"Best hyperparameters: {hparams}")
 
     def save_model(self) -> None:
-        """Save the model to a file.
+        """Save current model to disk.
 
-        Raises:
-            ValueError: If the model is not initialized
+        :raises ValueError: If model is not initialized
         """
         if self.__model is None:
             raise ValueError("Model is not initialized")
@@ -256,102 +284,102 @@ class CNNTrainer:
         self.__best_model_path = f"../models/best-cnn{self.__interval}.keras"
 
     def best_model(self) -> str:
-        """Get the best model path.
+        """Get path to best saved model.
 
-        Returns:
-            str: Path to the best model
+        :return: Path to model file
+        :rtype: str
         """
         return self.__best_model_path
 
-    def confusion_matrix(self, filename: str, y_true: np.ndarray, y_pred: np.ndarray, tags: list[str]) -> str:
-        """Generate a confusion matrix for the given model.
+    def confusion_matrix(self, filename: str, y_true: np.ndarray, 
+                         y_pred: np.ndarray, tags: list[str]) -> str:
+        """Generate and save confusion matrix.
 
-        Args:
-            filename (str): Path to the model file
-            y_true (np.ndarray): True labels
-            y_pred (np.ndarray): Predicted labels
-            tags (list[str]): List of tags
-
-        Returns:
-            str: Path to the confusion matrix image
+        :param filename: Model filename
+        :type filename: str
+        :param y_true: True labels
+        :type y_true: np.ndarray
+        :param y_pred: Predicted labels
+        :type y_pred: np.ndarray
+        :param tags: Category names
+        :type tags: list[str]
+        :return: Path to saved confusion matrix image
+        :rtype: str
         """
         self.__model = tf.keras.models.load_model(filename)
         y_pred = np.argmax(y_pred, axis=1)
         y_true = np.argmax(y_true, axis=1)
-        plot_filename = "./CNNlog/CM_" + \
-            filename.split("/")[-1].replace(".keras", ".png")
+        plot_filename = "./CNNlog/CM_" + filename.split("/")[-1].replace(".keras", ".png")
         plot_confusion_matrix(y_true, y_pred, tags, plot_filename,
-                              title=f"Matriz de confusión (CNN, intervalo {self.__interval}s)")
+                            title=f"Confusion Matrix (CNN, interval {self.__interval}s)")
         plt.close()
         return plot_filename
 
     def get_best_acc(self) -> float:
-        """Get the best accuracy.
+        """Get best achieved accuracy.
 
-        Returns:
-            float: Best accuracy
+        :return: Accuracy value
+        :rtype: float
         """
         return self.__best_acc
 
     def get_confusion_matrix(self) -> str:
-        """Get the confusion matrix.
+        """Get path to confusion matrix image.
 
-        Returns:
-            str: Path to the confusion matrix image
+        :return: Path to image file
+        :rtype: str
         """
         return self.__cm_file_path
 
     def stats(self) -> str:
-        """Get the stats of the model.
+        """Get training statistics summary.
 
-        Returns:
-            str: Stats of the model
+        :return: Formatted statistics string
+        :rtype: str
         """
         return f"Best score: {self.__best_acc}"
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict the output for the given input.
+        """Generate predictions for input data.
 
-        Args:
-            X (np.ndarray): Input data
-
-        Returns:
-            np.ndarray: Predicted output
-
-        Raises:
-            ValueError: If the model is not initialized
+        :param X: Input data
+        :type X: np.ndarray
+        :return: Model predictions
+        :rtype: np.ndarray
+        :raises ValueError: If model is not initialized
         """
         if self.__model is None:
             raise ValueError("Model is not initialized")
         return self.__model.predict(X)
 
     def get_log_dir(self) -> str:
-        """Get the log directory.
+        """Get TensorBoard log directory.
 
-        Returns:
-            str: Log directory
+        :return: Path to log directory
+        :rtype: str
         """
         return self.__tensorboard_log_dir
 
+# Example usage:
+# Uncomment the following lines to run the example
+# if __name__ == "__main__":
+#     X_train = np.random.randn(100, 10, 1)
+#     y_train = tf.keras.utils.to_categorical(
+#         np.random.randint(0, 6, size=(100,)), num_classes=6)
 
-if __name__ == "__main__":
-    X_train = np.random.randn(100, 10, 1)
-    y_train = tf.keras.utils.to_categorical(
-        np.random.randint(0, 6, size=(100,)), num_classes=6)
+#     X_val = np.random.randn(20, 10, 1)
+#     y_val = tf.keras.utils.to_categorical(
+#         np.random.randint(0, 6, size=(20,)), num_classes=6)
 
-    X_val = np.random.randn(20, 10, 1)
-    y_val = tf.keras.utils.to_categorical(
-        np.random.randint(0, 6, size=(20,)), num_classes=6)
+#     trainer = CNNTrainer('10')
+#     trainer.train_with_hparams(X_train, y_train, X_val, y_val,
+#                                epochs=5, batch_size=2, categories=[str(i) for i in range(6)])
 
-    trainer = CNNTrainer('10')
-    trainer.train_with_hparams(X_train, y_train, X_val, y_val,
-                               epochs=5, batch_size=2, categories=[str(i) for i in range(6)])
+#     print(trainer.stats())
 
-    print(trainer.stats())
-
-    tb = program.TensorBoard()
-    tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])
-    url = tb.launch()
-    print(f"TensorBoard started at {url}")
-    while True:
-        time.sleep(1)
+#     tb = program.TensorBoard()
+#     tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])
+#     url = tb.launch()
+#     print(f"TensorBoard started at {url}")
+#     while True:
+#         time.sleep(1)

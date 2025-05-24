@@ -1,0 +1,59 @@
+src.Utils
+=========
+
+.. py:module:: src.Utils
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   src.Utils.customDPI
+   src.Utils.plot_folder
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   src.Utils.plot_confusion_matrix
+
+
+Module Contents
+---------------
+
+.. py:data:: customDPI
+   :value: 300
+
+
+.. py:data:: plot_folder
+   :value: './plots/'
+
+
+.. py:function:: plot_confusion_matrix(y: numpy.ndarray, p: numpy.ndarray, tags: list[str], filename: str, title: str = '') -> None
+
+   Generate and save a confusion matrix visualization.
+
+   Creates a heatmap-style confusion matrix with class labels, grid lines,
+   and value annotations in each cell. Saves the plot to specified file.
+
+   :param y: Ground truth class indices (0-based or 1-based)
+   :type y: np.ndarray
+   :param p: Predicted class indices (same indexing as y)
+   :type p: np.ndarray
+   :param tags: Class names corresponding to indices
+   :type tags: list[str]
+   :param filename: Output file path for saving the plot
+   :type filename: str
+   :param title: Optional title for the plot, defaults to ""
+   :type title: str, optional
+
+   Note:
+       - Handles both 0-based and 1-based class indexing automatically
+       - Uses red color gradient (Reds colormap) for the heatmap
+       - Includes grid lines between cells for better readability
+       - Text annotations are white/black for optimal contrast
+
+

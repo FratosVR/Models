@@ -13,71 +13,110 @@ from keras_tuner import Hyperband, HyperParameters
 
 
 class RNNTrainer:
-    """RNN Model training manager with hyperparameter tuning using hparams."""
+    """RNN Model training manager with hyperparameter tuning using hparams and keras tuner.
+    
+    Supports SimpleRNN architecture with comprehensive hyperparameter optimization.
+    """
 
-    def __init__(self, interval: str, tensorboard_log_dir: str = "./logs/hparams_RNN"):
-        """Initializes the RNNTrainer class.
+    def __init__(self, interval: str, tensorboard_log_dir: str = "./logs/hparams_RNN") -> None:
+        """Initialize the RNNTrainer instance.
 
-        Args:
-            interval (float): interval of time between each frame sent to the model.
+        :param interval: Data sampling interval identifier
+        :type interval: str
+        :param tensorboard_log_dir: Directory for TensorBoard logs, defaults to "./logs/hparams_RNN"
+        :type tensorboard_log_dir: str, optional
         """
-
-        self.__interval = interval
-        self.__model = None
-        self.__best_model_path = f"best_rnn_{interval}.keras"
-        self.__tensorboard_log_dir = tensorboard_log_dir
-        self.__tensorboard_callbacks = [TensorBoard(
-            log_dir=os.path.join(tensorboard_log_dir, interval))]
-        self.__best_acc = 0.0
-        self.__tuner = None
+        self.__interval: str = interval  #: Data interval identifier
+        self.__model: tf.keras.Model = None  #: Keras model instance
+        #: Path to best saved model
+        self.__best_model_path: str = f"best_rnn_{interval}.keras"
+        #: Directory for TensorBoard logs
+        self.__tensorboard_log_dir: str = tensorboard_log_dir
+        #: List of TensorBoard callback instances
+        self.__tensorboard_callbacks: list[TensorBoard] = [
+            TensorBoard(log_dir=os.path.join(tensorboard_log_dir, interval))
+        ]
+        self.__best_acc: float = 0.0  #: Best achieved accuracy
+        self.__tuner: Hyperband = None  #: Keras tuner instance
+        self.__input_shape: tuple = None  #: Input shape of the model
+        self.__num_cats: int = None  #: Number of output categories
+        # RNN hyperparameters
+        self.__dropout: float = None  #: Dropout rate
+        self.__recurrent_dropout: float = None  #: Recurrent dropout rate
+        self.__activation: str = None  #: Activation function
+        self.__unroll: bool = None  #: Whether to unroll RNN
+        self.__use_bias: bool = None  #: Whether to use bias
+        self.__kernel_initializer: str = None  #: Kernel initializer
+        self.__recurrent_initializer: str = None  #: Recurrent initializer
+        self.__bias_initializer: str = None  #: Bias initializer
+        self.__kernel_regularizer: str = None  #: Kernel regularizer
+        self.__recurrent_regularizer: str = None  #: Recurrent regularizer
+        self.__bias_regularizer: str = None  #: Bias regularizer
+        self.__activity_regularizer: str = None  #: Activity regularizer
+        self.__kernel_constraint: str = None  #: Kernel constraint
+        self.__recurrent_constraint: str = None  #: Recurrent constraint
+        self.__bias_constraint: str = None  #: Bias constraint
 
     def __model_generator(self, input_shape: tuple[int, int], output_shape: int) -> None:
-        """LEGACY
+        """LEGACY - Generate RNN model with given specifications.
 
-        Generates a model given an input shape and an output shape.
-
-        Args:
-            input_shape (tuple[int, int]): shape of the input
-            output_shape (int): categories
+        :param input_shape: Input shape (timesteps, features)
+        :type input_shape: tuple[int, int]
+        :param output_shape: Number of output classes
+        :type output_shape: int
         """
-
         self.__model = tf.keras.Sequential([
-            tf.keras.layers.RNN(units=output_shape, input_shape=input_shape,
-                                dropout=self.__dropout,
-                                recurrent_dropout=self.__recurrent_dropout,
-                                activation=self.__activation,
-                                recurrent_activation=self.__recurrent_activation,
-                                unroll=self.__unroll,
-                                use_bias=self.__use_bias,
-                                kernel_initializer=self.__kernel_initializer,
-                                recurrent_initializer=self.__recurrent_initializer,
-                                bias_initializer=self.__bias_initializer,
-                                kernel_regularizer=self.__kernel_regularizer,
-                                recurrent_regularizer=self.__recurrent_regularizer,
-                                bias_regularizer=self.__bias_regularizer,
-                                activity_regularizer=self.__activity_regularizer,
-                                kernel_constraint=self.__kernel_constraint,
-                                recurrent_constraint=self.__recurrent_constraint,
-                                bias_constraint=self.__bias_constraint
-                                ),
+            tf.keras.layers.RNN(
+                units=output_shape,
+                input_shape=input_shape,
+                dropout=self.__dropout,
+                recurrent_dropout=self.__recurrent_dropout,
+                activation=self.__activation,
+                recurrent_activation=self.__recurrent_activation,
+                unroll=self.__unroll,
+                use_bias=self.__use_bias,
+                kernel_initializer=self.__kernel_initializer,
+                recurrent_initializer=self.__recurrent_initializer,
+                bias_initializer=self.__bias_initializer,
+                kernel_regularizer=self.__kernel_regularizer,
+                recurrent_regularizer=self.__recurrent_regularizer,
+                bias_regularizer=self.__bias_regularizer,
+                activity_regularizer=self.__activity_regularizer,
+                kernel_constraint=self.__kernel_constraint,
+                recurrent_constraint=self.__recurrent_constraint,
+                bias_constraint=self.__bias_constraint
+            ),
             tf.keras.layers.Dense(output_shape, activation='softmax')
         ])
 
-    def train_with_hparams(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None, X_test: np.ndarray = None, y_test: np.ndarray = None,
-                           epochs: int = 10, batch_size: int = 1, num_cats: int = 6, categories: list[str] = None) -> None:
-        """Train the model with all the combinations of Hparams.
+    def train_with_hparams(self, X: np.ndarray, y: np.ndarray,
+                          X_val: np.ndarray = None, y_val: np.ndarray = None,
+                          X_test: np.ndarray = None, y_test: np.ndarray = None,
+                          epochs: int = 10, batch_size: int = 1,
+                          num_cats: int = 6, categories: list[str] = None) -> None:
+        """Train model with hyperparameter tuning using Keras Tuner.
 
-        Args:
-            X (np.ndarray): Input data
-            y (np.ndarray): Input categories
-            X_val (np.ndarray, optional): Validation input data. Defaults to None.
-            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
-            epochs (int, optional): Number of epochs. Defaults to 10.
-            batch_size (int, optional): Batch size. Defaults to 1.
-            num_cats (int, optional): Number of categories. Defaults to 6.
-            categories (list[str], optional): List of categories. Defaults to None.
+        :param X: Training input data
+        :type X: np.ndarray
+        :param y: Training target data (one-hot encoded)
+        :type y: np.ndarray
+        :param X_val: Validation input data, defaults to None
+        :type X_val: np.ndarray, optional
+        :param y_val: Validation target data, defaults to None
+        :type y_val: np.ndarray, optional
+        :param X_test: Test input data, defaults to None
+        :type X_test: np.ndarray, optional
+        :param y_test: Test target data, defaults to None
+        :type y_test: np.ndarray, optional
+        :param epochs: Number of training epochs, defaults to 10
+        :type epochs: int, optional
+        :param batch_size: Batch size, defaults to 1
+        :type batch_size: int, optional
+        :param num_cats: Number of output categories, defaults to 6
+        :type num_cats: int, optional
+        :param categories: List of category names, defaults to None
+        :type categories: list[str], optional
         """
-
         self.__input_shape = X.shape[1:]
         self.__num_cats = num_cats
 
@@ -110,38 +149,44 @@ class RNNTrainer:
         best_hp = tuner.get_best_hyperparameters(1)[0]
 
         self.__model = best_model
-        self.__update_best_args(best_model.evaluate(X_test, y_test)[
-                                1], best_hp.values)
-
+        self.__update_best_args(best_model.evaluate(X_test, y_test)[1], best_hp.values)
         self.save_model()
 
         self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
             y_true=np.concatenate((y, y_val)),
-            y_pred=np.concatenate(
-                (self.predict(X), self.predict(X_val), self.predict(X_test))),
+            y_pred=np.concatenate((self.predict(X), self.predict(X_val), self.predict(X_test))),
             tags=categories
         )
 
-    def train(self, X: np.ndarray, y: np.ndarray, X_val: np.ndarray = None, y_val: np.ndarray = None,
-              epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> None:
-        """Train the model with the given parameters.
+    def train(self, X: np.ndarray, y: np.ndarray,
+              X_val: np.ndarray = None, y_val: np.ndarray = None,
+              epochs: int = 10, batch_size: int = 1,
+              log_dir: str = None, hparams: dict = None) -> None:
+        """Train model with fixed hyperparameters.
 
-        Args:
-            X (np.ndarray): Input data
-            y (np.ndarray): Input categories
-            X_val (np.ndarray, optional): Validation input data. Defaults to None.
-            y_val (np.ndarray, optional): Validation categories data. Defaults to None.
-            epochs (int, optional): Number of epochs. Defaults to 10.
-            batch_size (int, optional): Batch size. Defaults to 1.
-            log_dir (str, optional): Log directory. Defaults to None.
-            hparams (dict, optional): Hyperparameters. Defaults to None.
+        :param X: Training input data
+        :type X: np.ndarray
+        :param y: Training target data (one-hot encoded)
+        :type y: np.ndarray
+        :param X_val: Validation input data, defaults to None
+        :type X_val: np.ndarray, optional
+        :param y_val: Validation target data, defaults to None
+        :type y_val: np.ndarray, optional
+        :param epochs: Number of training epochs, defaults to 10
+        :type epochs: int, optional
+        :param batch_size: Batch size, defaults to 1
+        :type batch_size: int, optional
+        :param log_dir: Directory for training logs, defaults to None
+        :type log_dir: str, optional
+        :param hparams: Hyperparameters dictionary, defaults to None
+        :type hparams: dict, optional
         """
         input_shape = X.shape[1:]
 
         self.__model = tf.keras.Sequential([
-            tf.keras.layers.LSTM(units=num_cats, input_shape=input_shape),
-            tf.keras.layers.Dense(num_cats, activation="softmax")
+            tf.keras.layers.SimpleRNN(units=self.__num_cats, input_shape=input_shape),
+            tf.keras.layers.Dense(self.__num_cats, activation="softmax")
         ])
 
         self.__model.compile(
@@ -162,8 +207,7 @@ class RNNTrainer:
         self.__update_best_args(acc)
         self.save_model()
 
-        y_pred = [self.__model.predict(x)
-                  for x in np.concatenate((X, X_val), axis=1)]
+        y_pred = [self.__model.predict(x) for x in np.concatenate((X, X_val), axis=1)]
 
         self.__cm_file_path = self.confusion_matrix(
             self.__best_model_path,
@@ -172,12 +216,13 @@ class RNNTrainer:
             tags=categories
         )
 
-    def __build_model(self, hp: HyperParameters):
-        """Build the model with the given hyperparameters.
-        Args:
-            hp (HyperParameters): Hyperparameters (automatically created by keras tuner)
-        Returns:
-            tf.keras.Model: Model
+    def __build_model(self, hp: HyperParameters) -> tf.keras.Model:
+        """Build model architecture with tunable hyperparameters.
+
+        :param hp: Hyperparameters configuration
+        :type hp: HyperParameters
+        :return: Compiled Keras model
+        :rtype: tf.keras.Model
         """
         l1 = hp.Float("l1", 0.0, 0.01, step=0.001)
         l2 = hp.Float("l2", 0.0, 0.01, step=0.001)
@@ -202,8 +247,7 @@ class RNNTrainer:
 
         self.__dropout = hp.Float("dropout", 0.0, 1.0)
         self.__recurrent_dropout = hp.Float("recurrent_dropout", 0.0, 1.0)
-        self.__activation = hp.Choice(
-            "activation", ["tanh", "linear", "relu", "sigmoid"])
+        self.__activation = hp.Choice("activation", ["tanh", "linear", "relu", "sigmoid"])
         self.__unroll = hp.Boolean("unroll")
         self.__use_bias = hp.Boolean("use_bias")
         self.__kernel_initializer = hp.Choice(
@@ -260,25 +304,24 @@ class RNNTrainer:
 
         return model
 
-    def __update_best_args(self, acc: float, res: dict) -> None:
-        """updates the best arguments found when a new model is better than the previous one.
+    def __update_best_args(self, acc: float, hparams: dict = None) -> None:
+        """Update tracking of best model metrics.
 
-        Args:
-            new_accuracy (float): new accuracy found
-            new_time (float): new execution time found
-            res (dict): results
+        :param acc: New accuracy value
+        :type acc: float
+        :param hparams: Hyperparameters dictionary, defaults to None
+        :type hparams: dict, optional
         """
         if acc > self.__best_acc:
             self.__best_acc = acc
             print(f"New best accuracy: {acc:.4f}")
-            if res:
-                print(f"Best hyperparameters: {res}")
+            if hparams:
+                print(f"Best hyperparameters: {hparams}")
 
     def save_model(self) -> None:
-        """"Saves the best model found.
+        """Save current model to disk.
 
-        Raises:
-            ValueError: if the model is None
+        :raises ValueError: If model is not initialized
         """
         if self.__model is None:
             raise ValueError("Model is not initialized")
@@ -287,99 +330,104 @@ class RNNTrainer:
         self.__best_model_path = f"../models/best-rnn{self.__interval}.keras"
 
     def best_model(self) -> str:
-        """Get the best model path.
+        """Get path to best saved model.
 
-        Returns:
-            str: Path to the best model
+        :return: Path to model file
+        :rtype: str
         """
         return self.__best_model_path
 
-    def confusion_matrix(self, filename: str, y_true: np.ndarray, y_pred: np.ndarray, tags: list[str]) -> str:
-        """Generate a confusion matrix for the given model.
+    def confusion_matrix(self, filename: str, y_true: np.ndarray,
+                         y_pred: np.ndarray, tags: list[str]) -> str:
+        """Generate and save confusion matrix plot.
 
-        Args:
-            filename (str): Path to the model file
-            y_true (np.ndarray): True labels
-            y_pred (np.ndarray): Predicted labels
-            tags (list[str]): List of tags
-
-        Returns:
-            str: Path to the confusion matrix image
+        :param filename: Model filename base
+        :type filename: str
+        :param y_true: True labels (one-hot encoded)
+        :type y_true: np.ndarray
+        :param y_pred: Predicted labels (one-hot encoded)
+        :type y_pred: np.ndarray
+        :param tags: Category names for labeling
+        :type tags: list[str]
+        :return: Path to saved confusion matrix image
+        :rtype: str
         """
         self.__model = tf.keras.models.load_model(filename)
         y_pred = np.argmax(y_pred, axis=1)
         y_true = np.argmax(y_true, axis=1)
-        plot_filename = "./RNNlog/CM_" + \
-            filename.split("/")[-1].replace(".keras", ".png")
-        plot_confusion_matrix(y_true, y_pred, tags, plot_filename,
-                              title=f"Matriz de confusión (RNN, intervalo {self.__interval}s)")
+        plot_filename = os.path.join("./RNNlog", f"CM_{filename.split('/')[-1].replace('.keras', '.png')}")
+        plot_confusion_matrix(
+            y_true, y_pred, tags, plot_filename,
+            title=f"Confusion Matrix (RNN, interval {self.__interval}s)"
+        )
         plt.close()
         return plot_filename
 
     def get_best_acc(self) -> float:
-        """Get the best accuracy.
+        """Get best achieved accuracy.
 
-        Returns:
-            float: Best accuracy
+        :return: Accuracy value
+        :rtype: float
         """
         return self.__best_acc
 
     def get_confusion_matrix(self) -> str:
-        """Get the confusion matrix.
+        """Get path to confusion matrix image.
 
-        Returns:
-            str: Path to the confusion matrix image
+        :return: Path to image file
+        :rtype: str
         """
         return self.__cm_file_path
 
     def stats(self) -> str:
-        """Get the stats of the model.
+        """Get training statistics summary.
 
-        Returns:
-            str: Stats of the model
+        :return: Formatted statistics string
+        :rtype: str
         """
         return f"Best score: {self.__best_acc}"
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predicts the output given an input.
+        """Generate predictions for input data.
 
-        Args:
-            X (np.ndarray): input data
-
-        Returns:
-            np.ndarray: output data
+        :param X: Input data
+        :type X: np.ndarray
+        :return: Model predictions
+        :rtype: np.ndarray
+        :raises ValueError: If model is not initialized
         """
         if self.__model is None:
             raise ValueError("Model is not initialized")
         return self.__model.predict(X)
 
     def get_log_dir(self) -> str:
-        """Get the log directory.
+        """Get TensorBoard log directory.
 
-        Returns:
-            str: Log directory
+        :return: Path to log directory
+        :rtype: str
         """
         return self.__tensorboard_log_dir
 
+# Example usage:
+# Uncomment the following lines to run the example
+# if __name__ == "__main__":
+#     X_train = np.random.randn(100, 10, 1)
+#     y_train = tf.keras.utils.to_categorical(
+#         np.random.randint(0, 6, size=(100,)), num_classes=6)
 
-if __name__ == "__main__":
-    X_train = np.random.randn(100, 10, 1)
-    y_train = tf.keras.utils.to_categorical(
-        np.random.randint(0, 6, size=(100,)), num_classes=6)
+#     X_val = np.random.randn(20, 10, 1)
+#     y_val = tf.keras.utils.to_categorical(
+#         np.random.randint(0, 6, size=(20,)), num_classes=6)
 
-    X_val = np.random.randn(20, 10, 1)
-    y_val = tf.keras.utils.to_categorical(
-        np.random.randint(0, 6, size=(20,)), num_classes=6)
+#     trainer = RNNTrainer("10")
+#     trainer.train_with_hparams(X_train, y_train, X_val, y_val,
+#                                epochs=5, batch_size=2, categories=[str(i) for i in range(6)])
 
-    trainer = RNNTrainer("10")
-    trainer.train_with_hparams(X_train, y_train, X_val, y_val,
-                               epochs=5, batch_size=2, categories=[str(i) for i in range(6)])
+#     print(trainer.stats())
 
-    print(trainer.stats())
-
-    tb = program.TensorBoard()
-    tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])
-    url = tb.launch()
-    print(f"TensorBoard started at {url}")
-    while True:
-        time.sleep(1)
+#     tb = program.TensorBoard()
+#     tb.configure(argv=[None, "--logdir", trainer.get_log_dir()])
+#     url = tb.launch()
+#     print(f"TensorBoard started at {url}")
+#     while True:
+#         time.sleep(1)

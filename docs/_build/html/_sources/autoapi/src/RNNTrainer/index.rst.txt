@@ -1,0 +1,299 @@
+src.RNNTrainer
+==============
+
+.. py:module:: src.RNNTrainer
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   src.RNNTrainer.RNNTrainer
+
+
+Module Contents
+---------------
+
+
+
+
+.. py:class:: RNNTrainer(interval: str, tensorboard_log_dir: str = './logs/hparams_RNN')
+
+
+
+RNN Model training manager with hyperparameter tuning using hparams and keras tuner.
+
+   Supports SimpleRNN architecture with comprehensive hyperparameter optimization.
+
+
+.. py:attribute:: __interval
+      :type:  str
+
+.. py:attribute:: __model
+      :type:  tensorflow.keras.Model
+      :value: None
+
+
+.. py:attribute:: __best_model_path
+      :type:  str
+      :value: 'best_rnn_Uninferable.keras'
+
+
+.. py:attribute:: __tensorboard_log_dir
+      :type:  str
+      :value: './logs/hparams_RNN'
+
+
+.. py:attribute:: __tensorboard_callbacks
+      :type:  list[tensorflow.keras.callbacks.TensorBoard]
+
+.. py:attribute:: __best_acc
+      :type:  float
+      :value: 0.0
+
+
+.. py:attribute:: __tuner
+      :type:  keras_tuner.Hyperband
+      :value: None
+
+
+.. py:attribute:: __input_shape
+      :type:  tuple
+      :value: None
+
+
+.. py:attribute:: __num_cats
+      :type:  int
+      :value: None
+
+
+.. py:attribute:: __dropout
+      :type:  float
+      :value: None
+
+
+.. py:attribute:: __recurrent_dropout
+      :type:  float
+      :value: None
+
+
+.. py:attribute:: __activation
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __unroll
+      :type:  bool
+      :value: None
+
+
+.. py:attribute:: __use_bias
+      :type:  bool
+      :value: None
+
+
+.. py:attribute:: __kernel_initializer
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __recurrent_initializer
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __bias_initializer
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __kernel_regularizer
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __recurrent_regularizer
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __bias_regularizer
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __activity_regularizer
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __kernel_constraint
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __recurrent_constraint
+      :type:  str
+      :value: None
+
+
+.. py:attribute:: __bias_constraint
+      :type:  str
+      :value: None
+
+
+.. py:method:: __model_generator(input_shape: tuple[int, int], output_shape: int) -> None
+
+      LEGACY - Generate RNN model with given specifications.
+
+      :param input_shape: Input shape (timesteps, features)
+      :type input_shape: tuple[int, int]
+      :param output_shape: Number of output classes
+      :type output_shape: int
+
+
+.. py:method:: train_with_hparams(X: numpy.ndarray, y: numpy.ndarray, X_val: numpy.ndarray = None, y_val: numpy.ndarray = None, X_test: numpy.ndarray = None, y_test: numpy.ndarray = None, epochs: int = 10, batch_size: int = 1, num_cats: int = 6, categories: list[str] = None) -> None
+
+      Train model with hyperparameter tuning using Keras Tuner.
+
+      :param X: Training input data
+      :type X: np.ndarray
+      :param y: Training target data (one-hot encoded)
+      :type y: np.ndarray
+      :param X_val: Validation input data, defaults to None
+      :type X_val: np.ndarray, optional
+      :param y_val: Validation target data, defaults to None
+      :type y_val: np.ndarray, optional
+      :param X_test: Test input data, defaults to None
+      :type X_test: np.ndarray, optional
+      :param y_test: Test target data, defaults to None
+      :type y_test: np.ndarray, optional
+      :param epochs: Number of training epochs, defaults to 10
+      :type epochs: int, optional
+      :param batch_size: Batch size, defaults to 1
+      :type batch_size: int, optional
+      :param num_cats: Number of output categories, defaults to 6
+      :type num_cats: int, optional
+      :param categories: List of category names, defaults to None
+      :type categories: list[str], optional
+
+
+.. py:method:: train(X: numpy.ndarray, y: numpy.ndarray, X_val: numpy.ndarray = None, y_val: numpy.ndarray = None, epochs: int = 10, batch_size: int = 1, log_dir: str = None, hparams: dict = None) -> None
+
+      Train model with fixed hyperparameters.
+
+      :param X: Training input data
+      :type X: np.ndarray
+      :param y: Training target data (one-hot encoded)
+      :type y: np.ndarray
+      :param X_val: Validation input data, defaults to None
+      :type X_val: np.ndarray, optional
+      :param y_val: Validation target data, defaults to None
+      :type y_val: np.ndarray, optional
+      :param epochs: Number of training epochs, defaults to 10
+      :type epochs: int, optional
+      :param batch_size: Batch size, defaults to 1
+      :type batch_size: int, optional
+      :param log_dir: Directory for training logs, defaults to None
+      :type log_dir: str, optional
+      :param hparams: Hyperparameters dictionary, defaults to None
+      :type hparams: dict, optional
+
+
+.. py:method:: __build_model(hp: keras_tuner.HyperParameters) -> tensorflow.keras.Model
+
+      Build model architecture with tunable hyperparameters.
+
+      :param hp: Hyperparameters configuration
+      :type hp: HyperParameters
+      :return: Compiled Keras model
+      :rtype: tf.keras.Model
+
+
+.. py:method:: __update_best_args(acc: float, hparams: dict = None) -> None
+
+      Update tracking of best model metrics.
+
+      :param acc: New accuracy value
+      :type acc: float
+      :param hparams: Hyperparameters dictionary, defaults to None
+      :type hparams: dict, optional
+
+
+.. py:method:: save_model() -> None
+
+      Save current model to disk.
+
+      :raises ValueError: If model is not initialized
+
+
+.. py:method:: best_model() -> str
+
+      Get path to best saved model.
+
+      :return: Path to model file
+      :rtype: str
+
+
+.. py:method:: confusion_matrix(filename: str, y_true: numpy.ndarray, y_pred: numpy.ndarray, tags: list[str]) -> str
+
+      Generate and save confusion matrix plot.
+
+      :param filename: Model filename base
+      :type filename: str
+      :param y_true: True labels (one-hot encoded)
+      :type y_true: np.ndarray
+      :param y_pred: Predicted labels (one-hot encoded)
+      :type y_pred: np.ndarray
+      :param tags: Category names for labeling
+      :type tags: list[str]
+      :return: Path to saved confusion matrix image
+      :rtype: str
+
+
+.. py:method:: get_best_acc() -> float
+
+      Get best achieved accuracy.
+
+      :return: Accuracy value
+      :rtype: float
+
+
+.. py:method:: get_confusion_matrix() -> str
+
+      Get path to confusion matrix image.
+
+      :return: Path to image file
+      :rtype: str
+
+
+.. py:method:: stats() -> str
+
+      Get training statistics summary.
+
+      :return: Formatted statistics string
+      :rtype: str
+
+
+.. py:method:: predict(X: numpy.ndarray) -> numpy.ndarray
+
+      Generate predictions for input data.
+
+      :param X: Input data
+      :type X: np.ndarray
+      :return: Model predictions
+      :rtype: np.ndarray
+      :raises ValueError: If model is not initialized
+
+
+.. py:method:: get_log_dir() -> str
+
+      Get TensorBoard log directory.
+
+      :return: Path to log directory
+      :rtype: str
+
+
+
+
