@@ -1,4 +1,4 @@
-# from kaggle.api.kaggle_api_extended import KaggleApi
+from kaggle.api.kaggle_api_extended import KaggleApi
 import pandas as pd
 import os
 import numpy as np
@@ -29,12 +29,16 @@ class DataLoader:
         :param interval: Data sampling interval in seconds, defaults to 1.0
         :type interval: float, optional
         """
-        # self.__api = KaggleApi()
-        # self.__api.authenticate()
+        self.__api = KaggleApi()
+        self.__api.authenticate()
         #: Path to the dataset directory
         self.__dataset_path: str = dataset_path
         #: Data sampling interval in seconds
         self.__interval: float = interval
+
+        if not os.path.exists(self.__dataset_path):
+            self.__api.dataset_download_cli(
+                "alk222/csv-pose-animations", path=self.__dataset_path, unzip=True)
 
     def __dataset_cleaner_aux(self, data: list[tuple[str, str, np.ndarray]], max_length: int) -> list[tuple[str, str, np.ndarray]]:
         """Clean and standardize animation data to uniform length.
@@ -122,8 +126,7 @@ class DataLoader:
             if len(data) != 90:
                 print(f"Error with {label} with size {data.shape[0]}")
                 errors += 1
-        print(f"Errors: {errors} out of {len(cleaned_data)}, size mean: {
-              np.mean([data.shape[0] for label, filename, data in cleaned_data])}")
+        print(f"Errors: {errors} out of {len(cleaned_data)}, size mean: {np.mean([data.shape[0] for label, filename, data in cleaned_data])}")
 
         os.makedirs("./dataset/splitted-animations", exist_ok=True)
         for label, filename, row in tqdm(cleaned_data):
